@@ -73,7 +73,7 @@
       <div class="text-5xl mb-4">🚆</div>
       <h2 class="text-xl md:text-2xl font-bold text-white mb-2">Введите номер поезда выше</h2>
       <p class="text-slate-400 max-w-lg mx-auto text-sm">
-        Начните вводить цифры номера, выберите нитку с буквой из списка — и получите полную информацию о составе и расписании.
+        Введите номер поезда и нажмите «Найти» — система сама определит нитку и покажет всю информацию о составе и расписании.
       </p>
     </div>
 
@@ -84,7 +84,6 @@
 
     <section id="trainCard" class="hidden glass rounded-3xl p-6 md:p-10 shadow-2xl border border-slate-700/80 my-auto transition-all space-y-6">
 
-      <!-- Шапка -->
       <div class="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-slate-700/80">
         <div class="flex items-center gap-4">
           <div id="cardNumber" class="bg-red-600 text-white text-3xl md:text-5xl font-black px-5 py-2.5 rounded-2xl tracking-wider shadow-lg">715Ч</div>
@@ -100,7 +99,6 @@
         </div>
       </div>
 
-      <!-- Таймлайн -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6 py-6 border-b border-slate-700/80 items-center">
         <div class="bg-slate-900/60 p-5 rounded-2xl border border-slate-800">
           <div class="text-xs uppercase text-slate-400 font-semibold mb-1">Отправление</div>
@@ -129,7 +127,6 @@
         </div>
       </div>
 
-      <!-- Состав и салон -->
       <div>
         <h3 class="text-sm uppercase tracking-wider text-slate-400 font-bold mb-4">Данные состава и салона</h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -152,7 +149,6 @@
         </div>
       </div>
 
-      <!-- Блок расписания по станциям -->
       <div class="pt-4">
         <h3 class="text-sm uppercase tracking-wider text-slate-400 font-bold mb-3">Расписание и остановки по пути следования</h3>
         <div class="bg-slate-900/80 rounded-2xl border border-slate-800 overflow-x-auto">
@@ -167,7 +163,6 @@
               </tr>
             </thead>
             <tbody id="stopsTableBody" class="divide-y divide-slate-800">
-              <!-- Заполняется динамически -->
             </tbody>
           </table>
         </div>
@@ -225,19 +220,37 @@
       loadTrainData();
     };
 
+    document.addEventListener('click', (e) => {
+      if (!suggestBox.contains(e.target) && e.target !== trainInput) {
+        suggestBox.classList.add('hidden');
+      }
+    });
+
     searchBtn.addEventListener('click', loadTrainData);
 
     async function loadTrainData() {
       const num = trainInput.value.trim();
       const date = dateInput.value;
 
+      if (!num) {
+        alert('Введите номер поезда.');
+        return;
+      }
+
+      // Если UID не выбран через выпадающий список, автоматически находим первый подходящий
       if (!selectedUid) {
-        const res = await fetch(`/api/suggest?q=${encodeURIComponent(num)}`);
-        const data = await res.json();
-        if (data.results && data.results.length > 0) {
-          selectedUid = data.results[0].uid;
-        } else {
-          alert('Поезд не выбран из подсказок.');
+        try {
+          const sRes = await fetch(`/api/suggest?q=${encodeURIComponent(num)}`);
+          const sData = await sRes.json();
+          if (sData.results && sData.results.length > 0) {
+            selectedUid = sData.results[0].uid;
+            trainInput.value = sData.results[0].number;
+          } else {
+            alert('Поезд с таким номером не найден.');
+            return;
+          }
+        } catch (e) {
+          alert('Ошибка поиска поезда.');
           return;
         }
       }
@@ -273,7 +286,6 @@
         document.getElementById('cardShelves').textContent = info.shelves;
         document.getElementById('cardSockets').textContent = info.sockets;
 
-        // Рендер таблицы остановок
         const tbody = document.getElementById('stopsTableBody');
         tbody.innerHTML = (info.stops || []).map(st => `
           <tr class="hover:bg-slate-800/50">
