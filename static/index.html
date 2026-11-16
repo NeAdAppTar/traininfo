@@ -10,7 +10,7 @@
       background: radial-gradient(circle at top, #1e293b 0%, #0f172a 100%);
       min-height: 100vh;
       color: #f8fafc;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: system-ui, -apple-system, sans-serif;
     }
     .glass {
       background: rgba(30, 41, 59, 0.75);
@@ -21,7 +21,6 @@
 </head>
 <body class="flex flex-col min-h-screen p-4 md:p-8">
 
-  <!-- Шапка и поиск -->
   <header class="w-full max-w-5xl mx-auto mb-6">
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
       <div>
@@ -29,28 +28,24 @@
           <span class="bg-red-600 text-white px-2.5 py-1 rounded-lg text-lg">РЖД</span>
           Радар Составов РФ
         </h1>
-        <p class="text-slate-400 text-sm mt-1">Определение модели электропоезда, компоновки полок, розеток и платформ по номеру</p>
+        <p class="text-slate-400 text-sm mt-1">Определение модели поезда, салона, расписания и платформ по номеру</p>
       </div>
     </div>
 
-    <!-- Поисковый блок -->
     <div class="glass rounded-2xl p-4 md:p-6 shadow-2xl relative z-20">
       <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
-        <!-- Поле номера поезда -->
         <div class="md:col-span-7 relative">
           <label class="block text-xs uppercase tracking-wider text-slate-400 mb-1.5 font-semibold">Номер поезда</label>
           <input
             id="trainInput"
             type="text"
-            placeholder="Например: 715, 029, 102..."
+            placeholder="Например: 715, 029..."
             autocomplete="off"
             class="w-full bg-slate-900/90 border border-slate-700 focus:border-red-500 rounded-xl px-4 py-3.5 text-lg font-bold text-white placeholder-slate-500 outline-none transition"
           />
-          <!-- Выпадающие подсказки с буквой и направлением -->
           <div id="suggestBox" class="hidden absolute left-0 right-0 top-full mt-2 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-50 max-h-72 overflow-y-auto"></div>
         </div>
 
-        <!-- Дата -->
         <div class="md:col-span-3">
           <label class="block text-xs uppercase tracking-wider text-slate-400 mb-1.5 font-semibold">Дата отправления</label>
           <input
@@ -60,7 +55,6 @@
           />
         </div>
 
-        <!-- Кнопка -->
         <div class="md:col-span-2 flex items-end">
           <button
             id="searchBtn"
@@ -70,139 +64,112 @@
           </button>
         </div>
       </div>
-
-      <!-- Опциональное уточнение маршрута (если поезд не нашелся в автоподсказках) -->
-      <div class="mt-3">
-        <button id="toggleRouteBtn" class="text-xs text-slate-400 hover:text-white underline transition">
-          + Уточнить города отправления и прибытия (если редкий поезд)
-        </button>
-        <div id="routeFields" class="hidden grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 pt-3 border-t border-slate-800">
-          <input id="fromCity" type="text" placeholder="Откуда (например, Курск)" class="bg-slate-900/80 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white outline-none" />
-          <input id="toCity" type="text" placeholder="Куда (например, Москва)" class="bg-slate-900/80 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white outline-none" />
-        </div>
-      </div>
     </div>
   </header>
 
-  <!-- Основная полноэкранная плашка поезда -->
   <main class="flex-1 w-full max-w-5xl mx-auto flex flex-col justify-center">
 
-    <!-- Заглушка до поиска -->
     <div id="emptyState" class="glass rounded-3xl p-8 md:p-14 text-center my-auto">
       <div class="text-5xl mb-4">🚆</div>
       <h2 class="text-xl md:text-2xl font-bold text-white mb-2">Введите номер поезда выше</h2>
-      <p class="text-slate-400 max-w-lg mx-auto text-sm md:text-base">
-        Начните вводить цифры номера (например, <span class="text-white font-semibold">715</span>), выберите нужную букву и направление из выпадающего списка — и получите полный разбор подвижного состава.
+      <p class="text-slate-400 max-w-lg mx-auto text-sm">
+        Начните вводить цифры номера, выберите нитку с буквой из списка — и получите полную информацию о составе и расписании.
       </p>
     </div>
 
-    <!-- Индикатор загрузки -->
     <div id="loadingState" class="hidden glass rounded-3xl p-12 text-center my-auto">
       <div class="animate-spin w-12 h-12 border-4 border-red-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-      <p class="text-lg font-medium text-slate-300">Загружаем нитку маршрута и анализируем состав...</p>
+      <p class="text-lg font-medium text-slate-300">Загружаем нитку маршрута и расписание...</p>
     </div>
 
-    <!-- Карточка поезда на весь экран -->
-    <section id="trainCard" class="hidden glass rounded-3xl p-6 md:p-10 shadow-2xl border border-slate-700/80 my-auto transition-all">
+    <section id="trainCard" class="hidden glass rounded-3xl p-6 md:p-10 shadow-2xl border border-slate-700/80 my-auto transition-all space-y-6">
 
-      <!-- Верхний ряд: Номер с буквой, категория и перевозчик -->
+      <!-- Шапка -->
       <div class="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-slate-700/80">
         <div class="flex items-center gap-4">
-          <div id="cardNumber" class="bg-red-600 text-white text-3xl md:text-5xl font-black px-5 py-2.5 rounded-2xl tracking-wider shadow-lg shadow-red-600/30">
-            715Ч
-          </div>
+          <div id="cardNumber" class="bg-red-600 text-white text-3xl md:text-5xl font-black px-5 py-2.5 rounded-2xl tracking-wider shadow-lg">715Ч</div>
           <div>
-            <span id="cardCategory" class="inline-block bg-slate-800 text-red-400 text-xs md:text-sm font-bold px-3 py-1 rounded-full uppercase tracking-wider mb-1">
-              Скоростной электропоезд
-            </span>
-            <h2 id="cardRoute" class="text-xl md:text-3xl font-extrabold text-white">
-              Москва — Курск
-            </h2>
+            <span id="cardCategory" class="inline-block bg-slate-800 text-red-400 text-xs md:text-sm font-bold px-3 py-1 rounded-full uppercase tracking-wider mb-1">Скоростной</span>
+            <h2 id="cardRoute" class="text-xl md:text-3xl font-extrabold text-white">Москва — Курск</h2>
           </div>
         </div>
-
         <div class="text-left md:text-right">
           <div class="text-xs uppercase text-slate-400 font-semibold">Перевозчик</div>
-          <div id="cardCarrier" class="text-base md:text-lg font-bold text-slate-200">ДОСС / ФПК</div>
+          <div id="cardCarrier" class="text-base md:text-lg font-bold text-slate-200">ФПК / ДОСС</div>
           <div id="cacheBadge" class="text-[11px] text-emerald-400 mt-0.5"></div>
         </div>
       </div>
 
-      <!-- Средний блок: Таймлайн Отправление — В пути — Прибытие + Платформы -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 py-8 border-b border-slate-700/80 items-center">
-        <!-- Отправление -->
+      <!-- Таймлайн -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 py-6 border-b border-slate-700/80 items-center">
         <div class="bg-slate-900/60 p-5 rounded-2xl border border-slate-800">
           <div class="text-xs uppercase text-slate-400 font-semibold mb-1">Отправление</div>
-          <div id="cardDepTime" class="text-3xl md:text-4xl font-black text-white mb-1">16:00</div>
+          <div id="cardDepTime" class="text-3xl font-black text-white mb-1">16:00</div>
           <div id="cardDepStation" class="text-base font-semibold text-slate-200">Курск</div>
-          <div class="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
-            <span class="text-slate-400">Платформа / путь:</span>
-            <span id="cardDepPlatform" class="font-bold text-amber-400">По табло вокзала</span>
+          <div class="mt-3 pt-3 border-t border-slate-800 flex items-center justify-between text-xs">
+            <span class="text-slate-400">Платформа:</span>
+            <span id="cardDepPlatform" class="font-bold text-amber-400">—</span>
           </div>
         </div>
 
-        <!-- Время в пути -->
         <div class="flex flex-col items-center justify-center text-center px-4">
-          <div class="text-xs uppercase tracking-widest text-slate-400 font-semibold mb-1">Время в пути</div>
-          <div id="cardDuration" class="text-2xl md:text-3xl font-extrabold text-emerald-400 mb-2">5 ч 35 мин</div>
-          <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden relative">
-            <div class="w-2/3 h-full bg-gradient-to-r from-red-600 to-emerald-400 rounded-full mx-auto"></div>
-          </div>
-          <div id="cardFullDirection" class="text-xs text-slate-400 mt-2 font-medium">Полный маршрут следования</div>
+          <div class="text-xs uppercase tracking-widest text-slate-400 font-semibold mb-1">В пути</div>
+          <div id="cardDuration" class="text-2xl font-extrabold text-emerald-400 mb-2">5 ч 35 мин</div>
+          <div id="cardFullDirection" class="text-xs text-slate-400 font-medium">Маршрут</div>
         </div>
 
-        <!-- Прибытие (объединено с конечной станцией направления) -->
         <div class="bg-slate-900/60 p-5 rounded-2xl border border-slate-800">
-          <div class="text-xs uppercase text-slate-400 font-semibold mb-1">Прибытие (Станция назначения)</div>
-          <div id="cardArrTime" class="text-3xl md:text-4xl font-black text-white mb-1">21:35</div>
-          <div id="cardArrStation" class="text-base font-semibold text-slate-200">Москва (Восточный вокзал)</div>
-          <div class="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
-            <span class="text-slate-400">Платформа прибытия:</span>
-            <span id="cardArrPlatform" class="font-bold text-amber-400">По факту прибытия</span>
+          <div class="text-xs uppercase text-slate-400 font-semibold mb-1">Прибытие</div>
+          <div id="cardArrTime" class="text-3xl font-black text-white mb-1">21:35</div>
+          <div id="cardArrStation" class="text-base font-semibold text-slate-200">Москва</div>
+          <div class="mt-3 pt-3 border-t border-slate-800 flex items-center justify-between text-xs">
+            <span class="text-slate-400">Платформа:</span>
+            <span id="cardArrPlatform" class="font-bold text-amber-400">—</span>
           </div>
         </div>
       </div>
 
-      <!-- Нижний блок: Подвижной состав, модель, полки и розетки -->
-      <div class="pt-8">
-        <h3 class="text-sm uppercase tracking-wider text-slate-400 font-bold mb-4">
-          Технические данные состава и салона
-        </h3>
-
+      <!-- Состав и салон -->
+      <div>
+        <h3 class="text-sm uppercase tracking-wider text-slate-400 font-bold mb-4">Данные состава и салона</h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <!-- Модификация -->
           <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-800">
-            <div class="text-xs text-slate-400 uppercase font-semibold mb-1">Предполагаемая модель / Серия</div>
-            <div id="cardModel" class="text-lg md:text-xl font-bold text-white">ЭС2ГП («Ласточка-Премиум»)</div>
+            <div class="text-xs text-slate-400 uppercase font-semibold mb-1">Серия / Модель</div>
+            <div id="cardModel" class="text-lg font-bold text-white">ЭС2ГП</div>
           </div>
-
-          <!-- Составность -->
           <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-800">
-            <div class="text-xs text-slate-400 uppercase font-semibold mb-1">Составность (Вагоны)</div>
-            <div id="cardComposition" class="text-lg md:text-xl font-bold text-white">5 или 10 вагонов</div>
+            <div class="text-xs text-slate-400 uppercase font-semibold mb-1">Составность</div>
+            <div id="cardComposition" class="text-lg font-bold text-white">5 ваг.</div>
           </div>
-
-          <!-- Полки и места -->
           <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-800">
-            <div class="text-xs text-slate-400 uppercase font-semibold mb-1">Расположение полок и особенности салона</div>
-            <div id="cardShelves" class="text-sm md:text-base font-medium text-slate-200 leading-relaxed">
-              Описание полок...
-            </div>
+            <div class="text-xs text-slate-400 uppercase font-semibold mb-1">Полки и салон</div>
+            <div id="cardShelves" class="text-sm font-medium text-slate-200">...</div>
           </div>
-
-          <!-- Розетки -->
           <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-800">
-            <div class="text-xs text-slate-400 uppercase font-semibold mb-1">Наличие розеток 220В / USB</div>
-            <div id="cardSockets" class="text-sm md:text-base font-medium text-slate-200 leading-relaxed">
-              Описание розеток...
-            </div>
+            <div class="text-xs text-slate-400 uppercase font-semibold mb-1">Розетки / USB</div>
+            <div id="cardSockets" class="text-sm font-medium text-slate-200">...</div>
           </div>
         </div>
+      </div>
 
-        <!-- Дополнительная плашка (Дни курсирования) -->
-        <div class="mt-4 bg-slate-900/40 px-5 py-3.5 rounded-xl border border-slate-800/60 flex flex-wrap items-center justify-between gap-2 text-xs md:text-sm">
-          <span class="text-slate-400 font-medium">Дополнительная информация (дни курсирования):</span>
-          <span id="cardDays" class="text-slate-200 font-semibold">Ежедневно</span>
+      <!-- Блок расписания по станциям -->
+      <div class="pt-4">
+        <h3 class="text-sm uppercase tracking-wider text-slate-400 font-bold mb-3">Расписание и остановки по пути следования</h3>
+        <div class="bg-slate-900/80 rounded-2xl border border-slate-800 overflow-x-auto">
+          <table class="w-full text-left text-xs md:text-sm">
+            <thead class="bg-slate-800 text-slate-400 uppercase text-[11px]">
+              <tr>
+                <th class="p-3">Станция</th>
+                <th class="p-3">Прибытие</th>
+                <th class="p-3">Стоянка</th>
+                <th class="p-3">Отправление</th>
+                <th class="p-3 text-amber-400">Платформа / Путь</th>
+              </tr>
+            </thead>
+            <tbody id="stopsTableBody" class="divide-y divide-slate-800">
+              <!-- Заполняется динамически -->
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -214,10 +181,6 @@
     const dateInput = document.getElementById('dateInput');
     const suggestBox = document.getElementById('suggestBox');
     const searchBtn = document.getElementById('searchBtn');
-    const toggleRouteBtn = document.getElementById('toggleRouteBtn');
-    const routeFields = document.getElementById('routeFields');
-    const fromCity = document.getElementById('fromCity');
-    const toCity = document.getElementById('toCity');
 
     const emptyState = document.getElementById('emptyState');
     const loadingState = document.getElementById('loadingState');
@@ -227,83 +190,54 @@
     let selectedUid = "";
     let debounceTimer = null;
 
-    toggleRouteBtn.addEventListener('click', () => {
-      routeFields.classList.toggle('hidden');
-    });
-
-    // Автоподсказки при вводе номера поезда
     trainInput.addEventListener('input', () => {
       selectedUid = "";
       const q = trainInput.value.trim();
       clearTimeout(debounceTimer);
-      if (q.length < 1) {
-        suggestBox.classList.add('hidden');
-        return;
-      }
+      if (q.length < 1) { suggestBox.classList.add('hidden'); return; }
 
       debounceTimer = setTimeout(async () => {
-        try {
-          const res = await fetch(`/api/suggest?q=${encodeURIComponent(q)}`);
-          const data = await res.json();
-          renderSuggestions(data.results || []);
-        } catch (e) {
-          console.error(e);
-        }
+        const res = await fetch(`/api/suggest?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        renderSuggestions(data.results || []);
       }, 300);
     });
 
     function renderSuggestions(items) {
       if (!items.length) {
-        suggestBox.innerHTML = `<div class="p-3.5 text-xs text-slate-400">Точных совпадений в быстром поиске нет. Нажмите «+ Уточнить города» ниже и укажите Откуда и Куда.</div>`;
+        suggestBox.innerHTML = `<div class="p-3 text-xs text-slate-400">Поездов не найдено</div>`;
         suggestBox.classList.remove('hidden');
         return;
       }
-
-      suggestBox.innerHTML = items.map(item => `
-        <div
-          class="p-3.5 hover:bg-slate-800 cursor-pointer border-b border-slate-800 last:border-0 flex items-center justify-between gap-3 transition"
-          onclick="selectSuggestedTrain('${item.uid}', '${item.number.replace(/'/g, "")}')"
-        >
-          <div>
-            <span class="bg-red-600 text-white text-xs font-extrabold px-2 py-0.5 rounded mr-2">${item.number}</span>
-            <span class="text-sm font-semibold text-white">${item.title}</span>
-          </div>
+      suggestBox.innerHTML = items.map(i => `
+        <div class="p-3.5 hover:bg-slate-800 cursor-pointer border-b border-slate-800 flex justify-between" onclick="selectTrain('${i.uid}', '${i.number}')">
+          <span><b class="text-red-500">${i.number}</b> ${i.title}</span>
           <span class="text-xs text-slate-400">Выбрать →</span>
         </div>
       `).join('');
       suggestBox.classList.remove('hidden');
     }
 
-    window.selectSuggestedTrain = function(uid, number) {
+    window.selectTrain = function(uid, number) {
       selectedUid = uid;
       trainInput.value = number;
       suggestBox.classList.add('hidden');
       loadTrainData();
     };
 
-    document.addEventListener('click', (e) => {
-      if (!suggestBox.contains(e.target) && e.target !== trainInput) {
-        suggestBox.classList.add('hidden');
-      }
-    });
-
     searchBtn.addEventListener('click', loadTrainData);
 
     async function loadTrainData() {
       const num = trainInput.value.trim();
       const date = dateInput.value;
-      const fCity = fromCity.value.trim();
-      const tCity = toCity.value.trim();
 
-      if (!selectedUid && (!fCity || !tCity)) {
-        // Пробуем автоматически взять первый вариант из подсказок
+      if (!selectedUid) {
         const res = await fetch(`/api/suggest?q=${encodeURIComponent(num)}`);
         const data = await res.json();
         if (data.results && data.results.length > 0) {
           selectedUid = data.results[0].uid;
         } else {
-          routeFields.classList.remove('hidden');
-          alert('Для этого поезда укажите города Откуда и Куда в полях ниже (после первого поиска поезд запомнится в базе навсегда).');
+          alert('Поезд не выбран из подсказок.');
           return;
         }
       }
@@ -313,26 +247,15 @@
       loadingState.classList.remove('hidden');
 
       try {
-        const params = new URLSearchParams({
-          uid: selectedUid,
-          number: num,
-          from_city: fCity,
-          to_city: tCity,
-          date: date
-        });
-        const resp = await fetch(`/api/train?${params.toString()}`);
+        const resp = await fetch(`/api/train?uid=${selectedUid}&number=${num}&date=${date}`);
         const info = await resp.json();
+        if (!resp.ok) throw new Error(info.detail || 'Ошибка загрузки');
 
-        if (!resp.ok) {
-          throw new Error(info.detail || 'Ошибка при получении данных поезда');
-        }
-
-        // Заполняем полноэкранную плашку
         document.getElementById('cardNumber').textContent = info.number;
         document.getElementById('cardCategory').textContent = info.category;
         document.getElementById('cardRoute').textContent = info.route_title;
         document.getElementById('cardCarrier').textContent = info.carrier;
-        document.getElementById('cacheBadge').textContent = info.from_cache ? '⚡ Из мгновенного кэша (0 запросов к API)' : '✓ Обновлено из API';
+        document.getElementById('cacheBadge').textContent = info.from_cache ? '⚡ Из кэша' : '✓ Обновлено';
 
         document.getElementById('cardDepTime').textContent = info.dep_time;
         document.getElementById('cardDepStation').textContent = info.dep_station;
@@ -342,14 +265,25 @@
         document.getElementById('cardFullDirection').textContent = `${info.dep_station} → ${info.arr_station}`;
 
         document.getElementById('cardArrTime').textContent = info.arr_time;
-        document.getElementById('cardArrStation').textContent = `${info.arr_station} (${info.route_title})`;
+        document.getElementById('cardArrStation').textContent = info.arr_station;
         document.getElementById('cardArrPlatform').textContent = info.arr_platform;
 
         document.getElementById('cardModel').textContent = info.model;
         document.getElementById('cardComposition').textContent = info.composition;
         document.getElementById('cardShelves').textContent = info.shelves;
         document.getElementById('cardSockets').textContent = info.sockets;
-        document.getElementById('cardDays').textContent = info.days;
+
+        // Рендер таблицы остановок
+        const tbody = document.getElementById('stopsTableBody');
+        tbody.innerHTML = (info.stops || []).map(st => `
+          <tr class="hover:bg-slate-800/50">
+            <td class="p-3 font-semibold text-white">${st.station}</td>
+            <td class="p-3 text-slate-300">${st.arrival}</td>
+            <td class="p-3 text-amber-400">${st.stop_min}</td>
+            <td class="p-3 text-slate-300">${st.departure}</td>
+            <td class="p-3 font-bold text-amber-300">${st.platform}</td>
+          </tr>
+        `).join('');
 
         loadingState.classList.add('hidden');
         trainCard.classList.remove('hidden');

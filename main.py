@@ -38,6 +38,7 @@ def init_db():
                 carrier TEXT
             )
         """)
+        # Таблица для ручных правок общих характеристик
         conn.execute("""
             CREATE TABLE IF NOT EXISTS train_overrides (
                 uid TEXT PRIMARY KEY,
@@ -48,6 +49,15 @@ def init_db():
                 sockets TEXT,
                 dep_platform TEXT,
                 arr_platform TEXT
+            )
+        """)
+        # Таблица для ручных правок платформ на конкретных станциях маршрута
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS station_platform_overrides (
+                uid TEXT,
+                station_title TEXT,
+                platform TEXT,
+                PRIMARY KEY (uid, station_title)
             )
         """)
 
@@ -74,6 +84,7 @@ def set_cached_thread(key: str, data: dict):
 
 def apply_overrides(uid: str, data: dict) -> dict:
     with sqlite3.connect(DB_PATH) as conn:
+        # Общие переопределения поезда
         row = conn.execute(
             "SELECT category, model, composition, shelves, sockets, dep_platform, arr_platform FROM train_overrides WHERE uid = ?",
             (uid,)
@@ -89,6 +100,19 @@ def apply_overrides(uid: str, data: dict) -> dict:
             if row[6]:
                 data["arr_platform"] = row[6]
             data["is_override"] = True
+
+        # Переопределения платформ для промежуточных станций
+        plat_rows = conn.execute(
+            "SELECT station_title, platform FROM station_platform_overrides WHERE uid = ?",
+            (uid,)
+        ).fetchall()
+        plat_map = {r[0]: r[1] for r in plat_rows}
+
+        if plat_map and "stops" in data:
+            for st in data["stops"]:
+                if st["station"] in plat_map:
+                    st["platform"] = plat_map[st["station"]]
+
     return data
 
 
@@ -209,9 +233,26 @@ async def get_train_details(
                 raise HTTPException(status_code=404, detail="Поезд не найден в API")
 
             t_data = resp.json()
-            stops = t_data.get("stops", [])
-            first_stop = stops[0] if stops else {}
-            last_stop = stops[-1] if stops else {}
+            stops_raw = t_data.get("stops", [])
+            
+            formatted_stops = []
+            for st in stops_raw:
+                st_obj = st.get("station", {})
+                arr = st.get("arrival")
+                dep = st.get("departure")
+                stop_sec = st.get("stop_time")
+                stop_min = int(stop_sec // 60) if stop_sec else 0
+
+                formatted_stops.append({
+                    "station": st_obj.get("title", ""),
+                    "arrival": arr[11:16] if arr else "—",
+                    "departure": dep[11:16] if dep else "—",
+                    "stop_min": f"{stop_min} мин" if stop_min else "—",
+                    "platform": st.get("platform") or "—"
+                })
+
+            first_stop = stops_raw[0] if stops_raw else {}
+            last_stop = stops_raw[-1] if stops_raw else {}
 
             full_number = t_data.get("number", number or "Б/Н")
             route_title = t_data.get("title", "Маршрут")
@@ -259,6 +300,7 @@ async def get_train_details(
             "composition": stock_info["composition"],
             "shelves": stock_info["shelves"],
             "sockets": stock_info["sockets"],
+            "stops": formatted_stops,
             "from_cache": False,
             "is_override": False
         }
@@ -292,15 +334,24 @@ async def admin_update_train(payload: dict = Body(...), x_admin_key: str = Heade
     sockets = payload.get("sockets")
     dep_platform = payload.get("dep_platform")
     arr_platform = payload.get("arr_platform")
+    station_platforms = payload.get("station_platforms", {}) # Словарь {"Название станции": "№ пути/платформы"}
 
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("""
             INSERT OR REPLACE INTO train_overrides (uid, category, model, composition, shelves, sockets, dep_platform, arr_platform)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, (uid, category, model, composition, shelves, sockets, dep_platform, arr_platform))
+
+        # Сохраняем платформы для промежуточных станций
+        for st_name, plat in station_platforms.items():
+            conn.execute("""
+                INSERT OR REPLACE INTO station_platform_overrides (uid, station_title, platform)
+                VALUES (?, ?, ?)
+            """, (uid, st_name, plat))
+
         conn.execute("DELETE FROM thread_cache WHERE cache_key LIKE ?", (f"{uid}%",))
 
-    return {"status": "success", "message": "Данные поезда успешно обновлены в базе"}
+    return {"status": "success", "message": "Данные и расписание платформ обновлены"}
 
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
