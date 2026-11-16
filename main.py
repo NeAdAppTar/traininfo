@@ -38,7 +38,6 @@ def init_db():
                 carrier TEXT
             )
         """)
-        # Таблица для ручных правок общих характеристик
         conn.execute("""
             CREATE TABLE IF NOT EXISTS train_overrides (
                 uid TEXT PRIMARY KEY,
@@ -51,7 +50,6 @@ def init_db():
                 arr_platform TEXT
             )
         """)
-        # Таблица для ручных правок платформ на конкретных станциях маршрута
         conn.execute("""
             CREATE TABLE IF NOT EXISTS station_platform_overrides (
                 uid TEXT,
@@ -64,7 +62,7 @@ def init_db():
 init_db()
 
 
-def get_cached_thread(key: str, ttl_seconds: int = 43200) -> dict | None:
+def get_cached_thread(key: str, ttl_seconds: int = 21600) -> dict | None:
     with sqlite3.connect(DB_PATH) as conn:
         row = conn.execute(
             "SELECT data_json, created_at FROM thread_cache WHERE cache_key = ?", (key,)
@@ -84,7 +82,6 @@ def set_cached_thread(key: str, data: dict):
 
 def apply_overrides(uid: str, data: dict) -> dict:
     with sqlite3.connect(DB_PATH) as conn:
-        # Общие переопределения поезда
         row = conn.execute(
             "SELECT category, model, composition, shelves, sockets, dep_platform, arr_platform FROM train_overrides WHERE uid = ?",
             (uid,)
@@ -101,7 +98,6 @@ def apply_overrides(uid: str, data: dict) -> dict:
                 data["arr_platform"] = row[6]
             data["is_override"] = True
 
-        # Переопределения платформ для промежуточных станций
         plat_rows = conn.execute(
             "SELECT station_title, platform FROM station_platform_overrides WHERE uid = ?",
             (uid,)
@@ -207,13 +203,15 @@ async def suggest_trains(q: str = Query(..., min_length=1)):
 async def get_train_details(
     uid: str = Query(""),
     number: str = Query(""),
+    from_city: str = Query(""),
+    to_city: str = Query(""),
     date: str = Query("")
 ):
     if not YANDEX_API_KEY:
         raise HTTPException(status_code=500, detail="Не задан YANDEX_API_KEY")
 
     target_date = date or datetime.now().strftime("%Y-%m-%d")
-    cache_key = f"{uid}_{number}_{target_date}"
+    cache_key = f"{uid}_{from_city}_{to_city}_{number}_{target_date}"
 
     cached = get_cached_thread(cache_key)
     if cached:
@@ -222,6 +220,25 @@ async def get_train_details(
         return cached
 
     async with httpx.AsyncClient(timeout=15.0) as client:
+        # Если передан UID или поиск через станции
+        if not uid and from_city and to_city:
+            s_url = "https://suggests.rasp.yandex.net/all_suggests"
+            r1 = (await client.get(s_url, params={"format": "old", "part": from_city, "lang": "ru"})).json()
+            r2 = (await client.get(s_url, params={"format": "old", "part": to_city, "lang": "ru"})).json()
+            if len(r1) > 1 and r1[1] and len(r2) > 1 and r2[1]:
+                f_code, t_code = r1[1][0][0], r2[1][0][0]
+                s_resp = await client.get(
+                    f"{BASE_URL}/search/",
+                    params={"apikey": YANDEX_API_KEY, "from": f_code, "to": t_code, "date": target_date, "transport_types": "train,suburban"}
+                )
+                if s_resp.status_code == 200:
+                    for seg in s_resp.json().get("segments", []):
+                        th = seg.get("thread", {})
+                        t_num = th.get("number", "")
+                        if number.lower() in t_num.lower():
+                            uid = th.get("uid")
+                            break
+
         if uid:
             resp = await client.get(
                 f"{BASE_URL}/thread/",
@@ -272,7 +289,7 @@ async def get_train_details(
             hours, mins = divmod(int(total_sec // 60), 60)
             duration_str = f"{hours} ч {mins} мин" if total_sec else "По графику"
         else:
-            raise HTTPException(status_code=400, detail="Укажите UID поезда")
+            raise HTTPException(status_code=400, detail="Укажите корректный номер или станции маршрута")
 
         with sqlite3.connect(DB_PATH) as conn:
             conn.execute(
@@ -315,17 +332,17 @@ async def admin_login(payload: dict = Body(...)):
     key = payload.get("key", "")
     if key == ADMIN_SECRET_KEY:
         return {"status": "ok", "token": ADMIN_SECRET_KEY}
-    raise HTTPException(status_code=403, detail="Неверный секретный ключ")
+    raise HTTPException(status_code=403, detail="Неверный ключ")
 
 
 @app.post("/api/admin/update")
 async def admin_update_train(payload: dict = Body(...), x_admin_key: str = Header(default="")):
     if x_admin_key != ADMIN_SECRET_KEY:
-        raise HTTPException(status_code=403, detail="Доступ запрещен: неверный ключ")
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
 
     uid = payload.get("uid")
     if not uid:
-        raise HTTPException(status_code=400, detail="Не указан UID поезда")
+        raise HTTPException(status_code=400, detail="Не указан UID")
 
     category = payload.get("category")
     model = payload.get("model")
@@ -334,7 +351,7 @@ async def admin_update_train(payload: dict = Body(...), x_admin_key: str = Heade
     sockets = payload.get("sockets")
     dep_platform = payload.get("dep_platform")
     arr_platform = payload.get("arr_platform")
-    station_platforms = payload.get("station_platforms", {}) # Словарь {"Название станции": "№ пути/платформы"}
+    station_platforms = payload.get("station_platforms", {})
 
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("""
@@ -342,16 +359,16 @@ async def admin_update_train(payload: dict = Body(...), x_admin_key: str = Heade
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, (uid, category, model, composition, shelves, sockets, dep_platform, arr_platform))
 
-        # Сохраняем платформы для промежуточных станций
         for st_name, plat in station_platforms.items():
             conn.execute("""
                 INSERT OR REPLACE INTO station_platform_overrides (uid, station_title, platform)
                 VALUES (?, ?, ?)
             """, (uid, st_name, plat))
 
+        # Полная очистка старого кэша для этого UID, чтобы новые данные подтягивались сразу
         conn.execute("DELETE FROM thread_cache WHERE cache_key LIKE ?", (f"{uid}%",))
 
-    return {"status": "success", "message": "Данные и расписание платформ обновлены"}
+    return {"status": "success"}
 
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
