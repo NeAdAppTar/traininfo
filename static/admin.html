@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Админ-панель — Редактирование поездов</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background: radial-gradient(circle at top, #1e293b 0%, #0f172a 100%);
+      min-height: 100vh;
+      color: #f8fafc;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    .glass {
+      background: rgba(30, 41, 59, 0.75);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+  </style>
+</head>
+<body class="p-4 md:p-8 max-w-4xl mx-auto">
+
+  <header class="flex justify-between items-center mb-8 pb-4 border-b border-slate-700">
+    <div>
+      <h1 class="text-2xl font-black text-white">⚙️ Панель управления поездом</h1>
+      <p class="text-xs text-slate-400">Домен: train.neadapptar.ru</p>
+    </div>
+    <a href="/" class="text-sm text-red-400 hover:underline">← На главную сайт</a>
+  </header>
+
+  <!-- Шаг 1: Авторизация по ключу -->
+  <div id="loginCard" class="glass rounded-2xl p-6 shadow-2xl mb-6">
+    <h2 class="text-lg font-bold mb-3">Введите секретный ключ администратора</h2>
+    <div class="flex gap-3">
+      <input id="keyInput" type="password" placeholder="Секретный ключ..." class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-red-500" />
+      <button onclick="loginAdmin()" class="bg-red-600 hover:bg-red-500 text-white font-bold px-6 py-3 rounded-xl transition">Войти</button>
+    </div>
+  </div>
+
+  <!-- Шаг 2: Интерфейс редактирования -->
+  <div id="adminPanel" class="hidden space-y-6">
+    
+    <div class="glass rounded-2xl p-6 shadow-2xl">
+      <label class="block text-xs uppercase tracking-wider text-slate-400 mb-2 font-semibold">Найти поезд по номеру</label>
+      <div class="relative">
+        <input id="trainSearch" type="text" placeholder="Введите номер (например 715)..." autocomplete="off" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-red-500" />
+        <div id="suggestBox" class="hidden absolute left-0 right-0 top-full mt-2 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-50 max-h-60 overflow-y-auto"></div>
+      </div>
+    </div>
+
+    <div id="editFormCard" class="hidden glass rounded-2xl p-6 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center pb-3 border-b border-slate-700">
+        <div>
+          <span id="editTrainNum" class="bg-red-600 text-white font-bold px-3 py-1 rounded-lg text-sm mr-2">715Ч</span>
+          <span id="editTrainTitle" class="text-sm text-slate-300 font-medium">Москва — Курск</span>
+        </div>
+        <span class="text-xs text-emerald-400 font-mono" id="editTrainUid"></span>
+      </div>
+
+      <input type="hidden" id="activeUid" />
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Категория / Тип поезда</label>
+          <input id="inpCategory" type="text" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Модель / Серия</label>
+          <input id="inpModel" type="text" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Составность (вагоны)</label>
+          <input id="inpComposition" type="text" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Платформа отправления</label>
+          <input id="inpDepPlatform" type="text" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Платформа прибытия</label>
+          <input id="inpArrPlatform" type="text" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white outline-none" />
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs text-slate-400 mb-1">Особенности полок / салона</label>
+        <textarea id="inpShelves" rows="2" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white outline-none"></textarea>
+      </div>
+
+      <button onclick="saveTrainData()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition shadow-lg">
+        💾 Сохранить изменения в базе
+      </button>
+    </div>
+
+  </div>
+
+  <script>
+    let adminKey = localStorage.getItem("admin_key") || "";
+
+    if (adminKey) {
+      document.getElementById("keyInput").value = adminKey;
+      verifyKey(adminKey);
+    }
+
+    async function loginAdmin() {
+      const key = document.getElementById("keyInput").value.trim();
+      verifyKey(key);
+    }
+
+    async function verifyKey(key) {
+      try {
+        const res = await fetch("/api/admin/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key })
+        });
+        if (res.ok) {
+          adminKey = key;
+          localStorage.setItem("admin_key", key);
+          document.getElementById("loginCard").classList.add("hidden");
+          document.getElementById("adminPanel").classList.remove("hidden");
+        } else {
+          alert("Неверный ключ!");
+        }
+      } catch (e) {
+        alert("Ошибка соединения с сервером");
+      }
+    }
+
+    const trainSearch = document.getElementById("trainSearch");
+    const suggestBox = document.getElementById("suggestBox");
+    let debounceTimer = null;
+
+    trainSearch.addEventListener("input", () => {
+      const q = trainSearch.value.trim();
+      clearTimeout(debounceTimer);
+      if (!q) { suggestBox.classList.add("hidden"); return; }
+
+      debounceTimer = setTimeout(async () => {
+        const res = await fetch(`/api/suggest?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        renderSuggests(data.results || []);
+      }, 300);
+    });
+
+    function renderSuggests(items) {
+      if (!items.length) {
+        suggestBox.innerHTML = `<div class="p-3 text-xs text-slate-400">Поездов не найдено</div>`;
+        suggestBox.classList.remove("hidden");
+        return;
+      }
+      suggestBox.innerHTML = items.map(i => `
+        <div class="p-3 hover:bg-slate-800 cursor-pointer border-b border-slate-800 flex justify-between" onclick="selectTrain('${i.uid}', '${i.number}', '${i.title}')">
+          <span><b class="text-red-500">${i.number}</b> ${i.title}</span>
+          <span class="text-xs text-slate-400">Редактировать →</span>
+        </div>
+      `).join('');
+      suggestBox.classList.remove("hidden");
+    }
+
+    async function selectTrain(uid, number, title) {
+      suggestBox.classList.add("hidden");
+      trainSearch.value = number;
+      
+      const res = await fetch(`/api/train?uid=${uid}&number=${number}`);
+      const info = await res.json();
+
+      document.getElementById("activeUid").value = uid;
+      document.getElementById("editTrainNum").textContent = info.number;
+      document.getElementById("editTrainTitle").textContent = info.route_title;
+      document.getElementById("editTrainUid").textContent = `UID: ${uid}`;
+
+      document.getElementById("inpCategory").value = info.category || "";
+      document.getElementById("inpModel").value = info.model || "";
+      document.getElementById("inpComposition").value = info.composition || "";
+      document.getElementById("inpShelves").value = info.shelves || "";
+      document.getElementById("inpDepPlatform").value = info.dep_platform || "";
+      document.getElementById("inpArrPlatform").value = info.arr_platform || "";
+
+      document.getElementById("editFormCard").classList.remove("hidden");
+    }
+
+    async function saveTrainData() {
+      const uid = document.getElementById("activeUid").value;
+      const payload = {
+        uid: uid,
+        category: document.getElementById("inpCategory").value,
+        model: document.getElementById("inpModel").value,
+        composition: document.getElementById("inpComposition").value,
+        shelves: document.getElementById("inpShelves").value,
+        dep_platform: document.getElementById("inpDepPlatform").value,
+        arr_platform: document.getElementById("inpArrPlatform").value
+      };
+
+      try {
+        const res = await fetch("/api/admin/update", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-admin-key": adminKey
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+          alert("✅ Данные поезда успешно обновлены!");
+        } else {
+          alert("❌ Ошибка сохранения");
+        }
+      } catch (e) {
+        alert("Ошибка сети");
+      }
+    }
+  </script>
+</body>
+</html>
