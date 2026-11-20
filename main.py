@@ -375,6 +375,28 @@ def init_db():
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, item)
 
+        # Базовый список популярных поездов в индексе (если таблица пуста)
+        train_count = conn.execute("SELECT COUNT(*) FROM train_index").fetchone()[0]
+        if train_count == 0:
+            default_trains = [
+                ("001А", "001A_default_uid", "Санкт-Петербург — Москва «Красная Стрела»", "ФПК"),
+                ("002А", "002A_default_uid", "Москва — Санкт-Петербург «Красная Стрела»", "ФПК"),
+                ("053Ч", "053C_default_uid", "Санкт-Петербург — Москва «Гранд Экспресс»", "Гранд Сервис Экспресс"),
+                ("054Ч", "054C_default_uid", "Москва — Санкт-Петербург «Гранд Экспресс»", "Гранд Сервис Экспресс"),
+                ("104В", "104V_default_uid", "Москва — Адлер двухэтажный", "ФПК"),
+                ("104С", "104S_default_uid", "Адлер — Москва двухэтажный", "ФПК"),
+                ("715Ч", "715C_default_uid", "Москва — Курск «Ласточка-Премиум»", "ДОСС"),
+                ("716Ч", "716C_default_uid", "Курск — Москва «Ласточка-Премиум»", "ДОСС"),
+                ("747А", "747A_default_uid", "Санкт-Петербург — Москва «Невский Экспресс»", "ФПК"),
+                ("751А", "751A_default_uid", "Санкт-Петербург — Москва «Сапсан»", "ДОСС"),
+                ("752А", "752A_default_uid", "Москва — Санкт-Петербург «Сапсан»", "ДОСС"),
+                ("922Ч", "922C_default_uid", "Сортавала — Горный парк Рускеала «Рускеальский экспресс»", "РЖД"),
+            ]
+            conn.executemany("""
+                INSERT OR IGNORE INTO train_index (number, uid, title, carrier)
+                VALUES (?, ?, ?, ?)
+            """, default_trains)
+
 init_db()
 
 
@@ -826,6 +848,56 @@ async def admin_login(payload: dict = Body(...)):
     raise HTTPException(status_code=403, detail="Неверный ключ")
 
 
+@app.get("/api/admin/trains")
+async def get_admin_trains(x_admin_key: str = Header(default="")):
+    if x_admin_key != ADMIN_SECRET_KEY:
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        query = """
+            SELECT 
+                i.number, 
+                i.uid, 
+                i.title, 
+                i.carrier,
+                o.category, 
+                o.model, 
+                o.composition, 
+                o.sockets,
+                o.shelves,
+                CASE WHEN o.uid IS NOT NULL THEN 1 ELSE 0 END as has_override
+            FROM train_index i
+            LEFT JOIN train_overrides o ON i.uid = o.uid
+            ORDER BY i.number ASC
+        """
+        rows = conn.execute(query).fetchall()
+
+        result = []
+        for r in rows:
+            d = dict(r)
+            if not d["has_override"]:
+                auto = detect_rolling_stock(d["number"], d["title"] or "", d["carrier"] or "", "")
+                d["category"] = auto.get("category", "Пассажирский поезд")
+                d["model"] = auto.get("model", "Стандарт ТВЗ")
+            result.append(d)
+        return result
+
+
+@app.delete("/api/admin/trains/{uid}")
+async def delete_admin_train(uid: str, x_admin_key: str = Header(default="")):
+    if x_admin_key != ADMIN_SECRET_KEY:
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute("DELETE FROM train_index WHERE uid = ?", (uid,))
+        conn.execute("DELETE FROM train_overrides WHERE uid = ?", (uid,))
+        conn.execute("DELETE FROM station_platform_overrides WHERE uid = ?", (uid,))
+        conn.execute("DELETE FROM thread_cache WHERE cache_key LIKE ?", (f"{uid}%",))
+
+    return {"status": "ok"}
+
+
 @app.post("/api/admin/update")
 async def admin_update_train(payload: dict = Body(...), x_admin_key: str = Header(default="")):
     if x_admin_key != ADMIN_SECRET_KEY:
@@ -835,6 +907,9 @@ async def admin_update_train(payload: dict = Body(...), x_admin_key: str = Heade
     if not uid:
         raise HTTPException(status_code=400, detail="Не указан UID")
 
+    number = payload.get("number")
+    title = payload.get("title")
+    carrier = payload.get("carrier")
     category = payload.get("category")
     model = payload.get("model")
     composition = payload.get("composition")
@@ -845,6 +920,12 @@ async def admin_update_train(payload: dict = Body(...), x_admin_key: str = Heade
     station_platforms = payload.get("station_platforms", {})
 
     with sqlite3.connect(DB_PATH) as conn:
+        if number and title:
+            conn.execute("""
+                INSERT OR REPLACE INTO train_index (number, uid, title, carrier)
+                VALUES (?, ?, ?, ?)
+            """, (number, uid, title, carrier or "РЖД"))
+
         conn.execute("""
             INSERT OR REPLACE INTO train_overrides (uid, category, model, composition, shelves, sockets, dep_platform, arr_platform)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
