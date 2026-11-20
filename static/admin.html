@@ -124,11 +124,11 @@
         <!-- Общие параметры поезда -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label class="block text-xs text-slate-400 mb-1 font-semibold">Категория / Тип поезда</label>
+            <label class="block text-xs text-slate-400 mb-1 font-semibold">Категория поезда</label>
             <input id="inpCategory" type="text" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-red-500" />
           </div>
           <div>
-            <label class="block text-xs text-slate-400 mb-1 font-semibold">Модель / Серия состава</label>
+            <label class="block text-xs text-slate-400 mb-1 font-semibold">Модель и серия состава</label>
             <input id="inpModel" type="text" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-red-500" />
           </div>
           <div>
@@ -136,7 +136,7 @@
             <input id="inpComposition" type="text" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-red-500" />
           </div>
           <div>
-            <label class="block text-xs text-slate-400 mb-1 font-semibold">Розетки / USB разъемы</label>
+            <label class="block text-xs text-slate-400 mb-1 font-semibold">Розетки и разъемы USB</label>
             <input id="inpSockets" type="text" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-red-500" />
           </div>
         </div>
@@ -154,8 +154,8 @@
               <thead class="bg-slate-800 text-slate-400 uppercase text-[10px] sticky top-0">
                 <tr>
                   <th class="p-3">Станция</th>
-                  <th class="p-3">Прибытие / Отправление</th>
-                  <th class="p-3">Платформа / Путь</th>
+                  <th class="p-3">Прибытие и отправление</th>
+                  <th class="p-3">Платформа или путь</th>
                 </tr>
               </thead>
               <tbody id="adminStopsBody" class="divide-y divide-slate-800">
@@ -196,18 +196,18 @@
             <input id="modalCategory" type="text" placeholder="например: Скоростной электропоезд" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white outline-none focus:border-red-500" />
           </div>
           <div>
-            <label class="block text-slate-300 font-bold mb-1">Модель / Серия состава *</label>
-            <input id="modalModel" type="text" placeholder="например: ЭС2ГП («Ласточка-Премиум») / ЭС1П" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white outline-none focus:border-red-500" />
+            <label class="block text-slate-300 font-bold mb-1">Модель и серия состава *</label>
+            <input id="modalModel" type="text" placeholder="например: ЭС2ГП постоянного тока" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white outline-none focus:border-red-500" />
           </div>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
             <label class="block text-slate-300 font-bold mb-1">Составность (вагоны)</label>
-            <input id="modalComposition" type="text" placeholder="например: 5 или 10 вагонов" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white outline-none focus:border-red-500" />
+            <input id="modalComposition" type="text" placeholder="например: 5 вагонов или сдвоенный состав 10 вагонов" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white outline-none focus:border-red-500" />
           </div>
           <div>
-            <label class="block text-slate-300 font-bold mb-1">Розетки / USB</label>
+            <label class="block text-slate-300 font-bold mb-1">Розетки и разъемы USB</label>
             <input id="modalSockets" type="text" placeholder="например: 220В и USB под сиденьями" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white outline-none focus:border-red-500" />
           </div>
         </div>
@@ -233,7 +233,7 @@
         </div>
 
         <div>
-          <label class="block text-slate-300 font-bold mb-1">Описание / Примечание</label>
+          <label class="block text-slate-300 font-bold mb-1">Описание и примечания</label>
           <input id="modalDescription" type="text" placeholder="например: Межрегиональные экспрессы повышенной комфортности" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white outline-none focus:border-red-500" />
         </div>
       </div>
@@ -345,7 +345,7 @@
               <div><b class="text-slate-400">Модель:</b> <span class="text-emerald-400 font-semibold">${t.model}</span></div>
               ${t.composition ? `<div><b class="text-slate-400">Состав:</b> ${t.composition}</div>` : ''}
               ${t.sockets ? `<div><b class="text-slate-400">Розетки:</b> ${t.sockets}</div>` : ''}
-              ${t.shelves ? `<div><b class="text-slate-400">Салон/полки:</b> <span class="text-slate-300">${t.shelves}</span></div>` : ''}
+              ${t.shelves ? `<div><b class="text-slate-400">Салон и полки:</b> <span class="text-slate-300">${t.shelves}</span></div>` : ''}
             </div>
 
             ${(t.match_numbers || t.match_keywords) ? `
