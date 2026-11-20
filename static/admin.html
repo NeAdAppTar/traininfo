@@ -74,9 +74,14 @@
             Система использует их для автоматического определения поезда по номерам/словам, а также для быстрой вставки шаблона при ручной настройке.
           </p>
         </div>
-        <button onclick="openTypeModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-2.5 rounded-xl transition flex items-center gap-2 shrink-0 shadow-lg shadow-emerald-900/30">
-          <span>➕</span> Добавить новый тип
-        </button>
+        <div class="flex flex-wrap items-center gap-2 shrink-0">
+          <button onclick="resetToDefaultTypes()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-4 py-2.5 rounded-xl border border-slate-700 transition flex items-center gap-2 text-xs">
+            <span>🔄</span> Обновить до 26 типов
+          </button>
+          <button onclick="openTypeModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-2.5 rounded-xl transition flex items-center gap-2 text-xs shadow-lg shadow-emerald-900/30">
+            <span>➕</span> Добавить новый тип
+          </button>
+        </div>
       </div>
 
       <!-- Список карточек типов -->
@@ -486,6 +491,24 @@
           await loadTrainTypes();
         } else {
           alert("Ошибка удаления");
+        }
+      } catch (e) {
+        alert("Ошибка сети");
+      }
+    }
+
+    async function resetToDefaultTypes() {
+      if (!confirm("Загрузить и сбросить справочник до актуальных 26 типов поездов и вагонов?")) return;
+      try {
+        const res = await fetch("/api/admin/train-types/reset-defaults", {
+          method: "POST",
+          headers: { "x-admin-key": adminKey }
+        });
+        if (res.ok) {
+          alert("✅ Справочник успешно обновлен! Загружено 26 стандартных типов.");
+          await loadTrainTypes();
+        } else {
+          alert("Ошибка обновления. Проверьте ключ администратора.");
         }
       } catch (e) {
         alert("Ошибка сети");
