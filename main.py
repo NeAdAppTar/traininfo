@@ -337,9 +337,18 @@ def init_db():
                 shelves TEXT,
                 sockets TEXT,
                 dep_platform TEXT,
-                arr_platform TEXT
+                arr_platform TEXT,
+                delay_minutes INTEGER DEFAULT 0,
+                delay_reason TEXT DEFAULT ''
             )
         """)
+
+        # Миграция колонок для train_overrides (delay_minutes, delay_reason)
+        cols = [c[1] for c in conn.execute("PRAGMA table_info(train_overrides)").fetchall()]
+        if "delay_minutes" not in cols:
+            conn.execute("ALTER TABLE train_overrides ADD COLUMN delay_minutes INTEGER DEFAULT 0")
+        if "delay_reason" not in cols:
+            conn.execute("ALTER TABLE train_overrides ADD COLUMN delay_reason TEXT DEFAULT ''")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS station_platform_overrides (
                 uid TEXT,
@@ -419,9 +428,11 @@ def set_cached_thread(key: str, data: dict):
 
 
 def apply_overrides(uid: str, data: dict) -> dict:
+    data["delay_minutes"] = 0
+    data["delay_reason"] = ""
     with sqlite3.connect(DB_PATH) as conn:
         row = conn.execute(
-            "SELECT category, model, composition, shelves, sockets, dep_platform, arr_platform FROM train_overrides WHERE uid = ?",
+            "SELECT category, model, composition, shelves, sockets, dep_platform, arr_platform, delay_minutes, delay_reason FROM train_overrides WHERE uid = ?",
             (uid,)
         ).fetchone()
         if row:
@@ -439,6 +450,8 @@ def apply_overrides(uid: str, data: dict) -> dict:
                 data["dep_platform"] = row[5]
             if row[6]:
                 data["arr_platform"] = row[6]
+            data["delay_minutes"] = row[7] if row[7] is not None else 0
+            data["delay_reason"] = row[8] or ""
             data["is_override"] = True
 
         plat_rows = conn.execute(
@@ -453,6 +466,157 @@ def apply_overrides(uid: str, data: dict) -> dict:
                     st["platform"] = plat_map[st["station"]]
 
     return data
+
+
+def compute_live_progress(stops: list, delay_min: int = 0, delay_reason: str = "", current_time: datetime | None = None) -> dict:
+    now = current_time or datetime.now()
+    if not stops:
+        return {
+            "state": "unknown",
+            "state_label": "НЕТ ДАННЫХ",
+            "headline": "Маршрут не загружен",
+            "subtext": "Информация о движении поезда недоступна",
+            "progress_pct": 0,
+            "passed_count": 0,
+            "total_count": 0,
+            "delay_minutes": delay_min,
+            "delay_status": "on_time",
+            "delay_label": "По расписанию",
+            "delay_reason": "",
+            "last_sync": now.strftime("%H:%M:%S"),
+            "stops": []
+        }
+
+    def parse_dt(s):
+        if not s:
+            return None
+        clean = s.replace("T", " ")
+        if "+" in clean:
+            clean = clean.split("+")[0]
+        for f in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
+            try:
+                return datetime.strptime(clean[:19], f)
+            except ValueError:
+                pass
+        return None
+
+    from datetime import timedelta
+    delay_td = timedelta(minutes=delay_min)
+    first_dep_planned = parse_dt(stops[0].get("departure_raw"))
+    last_arr_planned = parse_dt(stops[-1].get("arrival_raw"))
+
+    first_dep = (first_dep_planned + delay_td) if first_dep_planned else None
+    last_arr = (last_arr_planned + delay_td) if last_arr_planned else None
+
+    enriched_stops = []
+    passed_count = 0
+    standing_stop = None
+    next_stop = None
+    last_passed_stop = None
+
+    for i, st in enumerate(stops):
+        arr_p = parse_dt(st.get("arrival_raw"))
+        dep_p = parse_dt(st.get("departure_raw"))
+        arr_act = (arr_p + delay_td) if arr_p else None
+        dep_act = (dep_p + delay_td) if dep_p else None
+
+        st_status = "upcoming"
+        time_info = ""
+
+        check_dep = dep_act or arr_act
+        check_arr = arr_act or dep_act
+
+        if check_dep and now > check_dep:
+            st_status = "passed"
+            passed_count += 1
+            last_passed_stop = st
+            time_info = f"✓ Пройдена в {dep_act.strftime('%H:%M') if dep_act else arr_act.strftime('%H:%M')}"
+        elif arr_act and dep_act and arr_act <= now <= dep_act:
+            st_status = "standing"
+            standing_stop = st
+            mins_left = max(1, int((dep_act - now).total_seconds() // 60))
+            time_info = f"📍 Стоянка еще {mins_left} мин (до {dep_act.strftime('%H:%M')})"
+        elif check_arr and now < check_arr:
+            if next_stop is None and (standing_stop is None):
+                st_status = "next"
+                next_stop = st
+                mins_to_arr = max(1, int((check_arr - now).total_seconds() // 60))
+                time_info = f"🚆 Прибытие через {mins_to_arr} мин (в {check_arr.strftime('%H:%M')})"
+            else:
+                st_status = "upcoming"
+
+        item = dict(st)
+        item["status"] = st_status
+        item["time_info"] = time_info
+        item["actual_arrival"] = arr_act.strftime("%H:%M") if arr_act else "—"
+        item["actual_departure"] = dep_act.strftime("%H:%M") if dep_act else "—"
+        item["has_delay"] = delay_min != 0
+        enriched_stops.append(item)
+
+    total_duration_sec = (last_arr - first_dep).total_seconds() if (first_dep and last_arr and last_arr > first_dep) else 1
+    elapsed_sec = (now - first_dep).total_seconds() if first_dep else 0
+    progress_pct = max(0, min(100, int((elapsed_sec / total_duration_sec) * 100))) if total_duration_sec > 0 else 0
+
+    if delay_min > 0:
+        delay_status = "delayed"
+        delay_label = f"+{delay_min} мин"
+    elif delay_min < 0:
+        delay_status = "ahead"
+        delay_label = f"{delay_min} мин"
+    else:
+        delay_status = "on_time"
+        delay_label = "По расписанию"
+
+    if first_dep and now < first_dep:
+        state = "not_departed"
+        state_label = "ОЖИДАЕТ ОТПРАВЛЕНИЯ"
+        mins_to_start = int((first_dep - now).total_seconds() // 60)
+        hours, mins = divmod(mins_to_start, 60)
+        time_str = f"{hours} ч {mins} мин" if hours else f"{mins} мин"
+        headline = "Ожидает отправления"
+        subtext = f"Отправление со станции {stops[0].get('station')} в {first_dep.strftime('%H:%M')} (через {time_str})"
+        progress_pct = 0
+    elif last_arr and now >= last_arr:
+        state = "arrived"
+        state_label = "РЕЙС ЗАВЕРШЕН"
+        headline = "Рейс завершен"
+        subtext = f"Поезд прибыл на конечную станцию {stops[-1].get('station')}"
+        progress_pct = 100
+    elif standing_stop:
+        state = "standing"
+        state_label = "СТОЯНКА НА СТАНЦИИ"
+        headline = f"Стоянка: станция {standing_stop.get('station')}"
+        dep_raw = parse_dt(standing_stop.get("departure_raw"))
+        mins_dep = max(1, int((dep_raw + delay_td - now).total_seconds() // 60)) if dep_raw else 1
+        subtext = f"Поезд стоит на станции прямо сейчас. Отправление в {(dep_raw + delay_td).strftime('%H:%M')} (через {mins_dep} мин)"
+    else:
+        state = "in_transit"
+        state_label = "В ПУТИ ПРЯМО СЕЙЧАС"
+        p_name = last_passed_stop.get("station") if last_passed_stop else stops[0].get("station")
+        n_name = next_stop.get("station") if next_stop else stops[-1].get("station")
+        headline = f"В пути: {p_name} → {n_name}"
+        if next_stop and next_stop.get("arrival_raw"):
+            n_arr = parse_dt(next_stop.get("arrival_raw")) + delay_td
+            m_left = max(1, int((n_arr - now).total_seconds() // 60))
+            subtext = f"Следующая остановка: {n_name} в {n_arr.strftime('%H:%M')} (через {m_left} мин)"
+        else:
+            subtext = f"Поезд следует по перегону к станции {n_name}"
+
+    return {
+        "state": state,
+        "state_label": state_label,
+        "headline": headline,
+        "subtext": subtext,
+        "progress_pct": progress_pct,
+        "passed_count": passed_count,
+        "total_count": len(stops),
+        "delay_minutes": delay_min,
+        "delay_status": delay_status,
+        "delay_label": delay_label,
+        "delay_reason": delay_reason or ("По расписанию" if delay_min == 0 else f"Задержка {delay_min} мин"),
+        "last_sync": now.strftime("%H:%M:%S"),
+        "stops": enriched_stops
+    }
 
 
 def parse_number_ranges(rule_str: str) -> list[tuple[int, int]]:
@@ -730,6 +894,13 @@ async def get_train_details(
     cached = get_cached_thread(cache_key)
     if cached:
         cached = apply_overrides(cached.get("uid", ""), cached)
+        live_data = compute_live_progress(
+            cached.get("stops", []),
+            cached.get("delay_minutes", 0),
+            cached.get("delay_reason", "")
+        )
+        cached["live_status"] = live_data
+        cached["stops"] = live_data["stops"]
         cached["from_cache"] = True
         return cached
 
@@ -775,6 +946,9 @@ async def get_train_details(
 
                 formatted_stops.append({
                     "station": st_obj.get("title", ""),
+                    "station_code": st_obj.get("code", ""),
+                    "arrival_raw": arr,
+                    "departure_raw": dep,
                     "arrival": arr[11:16] if arr else "—",
                     "departure": dep[11:16] if dep else "—",
                     "stop_min": f"{stop_min} мин" if stop_min else "—",
@@ -837,6 +1011,14 @@ async def get_train_details(
 
         result = apply_overrides(uid, result)
         set_cached_thread(cache_key, result)
+
+        live_data = compute_live_progress(
+            result.get("stops", []),
+            result.get("delay_minutes", 0),
+            result.get("delay_reason", "")
+        )
+        result["live_status"] = live_data
+        result["stops"] = live_data["stops"]
         return result
 
 
@@ -866,6 +1048,8 @@ async def get_admin_trains(x_admin_key: str = Header(default="")):
                 o.composition, 
                 o.sockets,
                 o.shelves,
+                o.delay_minutes,
+                o.delay_reason,
                 CASE WHEN o.uid IS NOT NULL THEN 1 ELSE 0 END as has_override
             FROM train_index i
             LEFT JOIN train_overrides o ON i.uid = o.uid
@@ -917,6 +1101,8 @@ async def admin_update_train(payload: dict = Body(...), x_admin_key: str = Heade
     sockets = payload.get("sockets")
     dep_platform = payload.get("dep_platform")
     arr_platform = payload.get("arr_platform")
+    delay_minutes = int(payload.get("delay_minutes", 0) or 0)
+    delay_reason = (payload.get("delay_reason") or "").strip()
     station_platforms = payload.get("station_platforms", {})
 
     with sqlite3.connect(DB_PATH) as conn:
@@ -927,9 +1113,9 @@ async def admin_update_train(payload: dict = Body(...), x_admin_key: str = Heade
             """, (number, uid, title, carrier or "РЖД"))
 
         conn.execute("""
-            INSERT OR REPLACE INTO train_overrides (uid, category, model, composition, shelves, sockets, dep_platform, arr_platform)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (uid, category, model, composition, shelves, sockets, dep_platform, arr_platform))
+            INSERT OR REPLACE INTO train_overrides (uid, category, model, composition, shelves, sockets, dep_platform, arr_platform, delay_minutes, delay_reason)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (uid, category, model, composition, shelves, sockets, dep_platform, arr_platform, delay_minutes, delay_reason))
 
         for st_name, plat in station_platforms.items():
             conn.execute("""

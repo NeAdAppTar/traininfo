@@ -177,6 +177,40 @@
           <p class="text-[11px] text-slate-400 mt-1.5">При выборе типа поля ниже (Категория, Модель, Составность, Полки, Розетки) автоматически заполнятся стандартами.</p>
         </div>
 
+        <!-- Управление задержкой и актуальным опозданием (Live tracker) -->
+        <div class="bg-slate-900/90 border border-red-900/70 rounded-2xl p-5 space-y-3 shadow-lg">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <span class="text-red-400 text-lg">⏱️</span>
+              <label class="text-xs font-black uppercase tracking-wider text-red-400">Информация об опоздании и задержке рейса</label>
+            </div>
+            <span id="delayPreviewBadge" class="text-xs font-bold px-3 py-1 rounded-full bg-slate-800 text-emerald-400 border border-slate-700">
+              По расписанию
+            </span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-xs text-slate-400 mb-1 font-semibold">Опоздание (в минутах)</label>
+              <input id="inpDelayMinutes" type="number" min="0" max="1440" value="0" placeholder="0" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white font-bold outline-none focus:border-red-500" oninput="updateDelayPreview()" />
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-xs text-slate-400 mb-1 font-semibold">Причина задержки / изменения расписания</label>
+              <input id="inpDelayReason" type="text" placeholder="например: Техническая стоянка, скрещение со встречным поездом, погодные условия" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-red-500" />
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2 pt-1">
+            <span class="text-[11px] text-slate-400 font-medium">Быстрый выбор:</span>
+            <button type="button" onclick="setQuickDelay(0)" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1 rounded-lg border border-slate-700 transition">0 мин (По графику)</button>
+            <button type="button" onclick="setQuickDelay(10)" class="text-xs bg-amber-950/60 hover:bg-amber-900 text-amber-300 px-2.5 py-1 rounded-lg border border-amber-800/60 transition">+10 мин</button>
+            <button type="button" onclick="setQuickDelay(20)" class="text-xs bg-amber-950/60 hover:bg-amber-900 text-amber-300 px-2.5 py-1 rounded-lg border border-amber-800/60 transition">+20 мин</button>
+            <button type="button" onclick="setQuickDelay(30)" class="text-xs bg-red-950/60 hover:bg-red-900 text-red-300 px-2.5 py-1 rounded-lg border border-red-800/60 transition">+30 мин</button>
+            <button type="button" onclick="setQuickDelay(60)" class="text-xs bg-red-950/60 hover:bg-red-900 text-red-300 px-2.5 py-1 rounded-lg border border-red-800/60 transition">+1 час</button>
+          </div>
+          <p class="text-[11px] text-slate-400">При указании опоздания время прибытия и отправления на всех станциях автоматически сдвигается на пассажирском табло и в живом трекере.</p>
+        </div>
+
         <!-- Общие параметры поезда -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
@@ -633,6 +667,7 @@
               ? `<span class="bg-emerald-950/80 border border-emerald-700/60 text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full">✓ Настроен вручную</span>`
               : `<span class="bg-slate-800 text-slate-400 text-[10px] font-medium px-2 py-0.5 rounded-full">Автоопределение</span>`
             }
+            ${t.delay_minutes > 0 ? `<div class="mt-1"><span class="bg-red-950/80 border border-red-700/80 text-red-300 text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">⚠️ +${t.delay_minutes} мин</span></div>` : ''}
           </td>
           <td class="p-3 text-xs text-right whitespace-nowrap space-x-1">
             <button onclick="selectTrain('${t.uid}', '${t.number}')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white font-semibold rounded-lg border border-slate-700 transition">
@@ -713,6 +748,11 @@
       document.getElementById("inpShelves").value = info.shelves || "";
       document.getElementById("inpSockets").value = info.sockets || "";
 
+      // Поля задержки рейса
+      document.getElementById("inpDelayMinutes").value = info.delay_minutes || 0;
+      document.getElementById("inpDelayReason").value = info.delay_reason || "";
+      updateDelayPreview();
+
       // Сбрасываем выбор селекта пресетов
       document.getElementById("presetSelect").value = "";
 
@@ -745,6 +785,9 @@
         }
       });
 
+      const delayMinutes = parseInt(document.getElementById("inpDelayMinutes").value || 0, 10);
+      const delayReason = (document.getElementById("inpDelayReason").value || "").trim();
+
       const payload = {
         uid: uid,
         number: document.getElementById("editTrainNum").textContent.trim(),
@@ -755,6 +798,8 @@
         composition: document.getElementById("inpComposition").value.trim(),
         shelves: document.getElementById("inpShelves").value.trim(),
         sockets: document.getElementById("inpSockets").value.trim(),
+        delay_minutes: delayMinutes,
+        delay_reason: delayReason,
         station_platforms: stationPlatforms
       };
 
@@ -769,13 +814,31 @@
         });
 
         if (res.ok) {
-          alert("✅ Данные состава, вагонов и платформ успешно сохранены в базе!");
+          alert("✅ Данные состава, вагонов, платформ и опоздания успешно сохранены в базе!");
           await loadAdminTrains();
         } else {
           alert("❌ Ошибка сохранения");
         }
       } catch (e) {
         alert("Ошибка сети");
+      }
+    }
+
+    function setQuickDelay(mins) {
+      document.getElementById("inpDelayMinutes").value = mins;
+      updateDelayPreview();
+    }
+
+    function updateDelayPreview() {
+      const mins = parseInt(document.getElementById("inpDelayMinutes").value || 0, 10);
+      const badge = document.getElementById("delayPreviewBadge");
+      if (!badge) return;
+      if (mins > 0) {
+        badge.className = "text-xs font-bold px-3 py-1 rounded-full bg-red-950 text-red-300 border border-red-700 animate-pulse";
+        badge.textContent = `Задержка +${mins} мин`;
+      } else {
+        badge.className = "text-xs font-bold px-3 py-1 rounded-full bg-slate-800 text-emerald-400 border border-slate-700";
+        badge.textContent = "По расписанию";
       }
     }
   </script>

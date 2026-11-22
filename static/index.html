@@ -116,6 +116,52 @@
         </div>
       </div>
 
+      <!-- ЖИВОЙ ТРЕКЕР ДВИЖЕНИЯ ПОЕЗДА В РЕАЛЬНОМ ВРЕМЕНИ -->
+      <div id="liveTrackerCard" class="bg-gradient-to-r from-slate-900/90 via-slate-800/80 to-slate-900/90 rounded-2xl p-5 border border-slate-700/80 shadow-xl space-y-4">
+        
+        <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-700/70">
+          <div class="flex items-center gap-2">
+            <span id="liveStatusPulse" class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse shadow-lg shadow-emerald-500/50"></span>
+            <span id="liveStateBadge" class="text-xs font-black uppercase tracking-wider text-emerald-400">В пути прямо сейчас</span>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <span id="liveDelayBadge" class="text-xs font-bold px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+              По расписанию
+            </span>
+            <button onclick="loadTrainData(true)" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-2.5 py-1 rounded-lg border border-slate-700 transition flex items-center gap-1.5 shadow" title="Обновить статус движения">
+              <span>🔄</span> <span class="hidden sm:inline">Обновить</span>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <h3 id="liveHeadline" class="text-xl md:text-2xl font-black text-white leading-tight">В пути: станция — станция</h3>
+          <p id="liveSubtext" class="text-xs md:text-sm text-slate-300 mt-1">Следующая остановка: ...</p>
+        </div>
+
+        <!-- Визуальная шкала прогресса маршрута -->
+        <div class="space-y-1.5 pt-1">
+          <div class="relative w-full bg-slate-950/80 h-3 rounded-full overflow-hidden border border-slate-700/60">
+            <div id="liveProgressBar" class="h-full bg-gradient-to-r from-emerald-500 via-teal-400 to-amber-400 rounded-full transition-all duration-700" style="width: 0%"></div>
+          </div>
+          <div class="flex justify-between items-center text-[11px] text-slate-400 font-medium">
+            <span id="livePassedStationsText">Пройдено 0 из 0 станций (0%)</span>
+            <span id="liveTimeSyncText">Синхронизировано: --:--:--</span>
+          </div>
+        </div>
+
+        <!-- Оповещение об опоздании, если есть -->
+        <div id="liveDelayAlert" class="hidden p-3 rounded-xl bg-amber-950/40 border border-amber-600/40 flex items-start gap-2.5 text-xs text-amber-200">
+          <span class="text-amber-400 text-base">⚠️</span>
+          <div>
+            <div class="font-bold text-amber-300">Внимание: задержка рейса</div>
+            <div id="liveDelayAlertText" class="text-slate-300 mt-0.5">Поезд задерживается. Расчетное время прибытия на последующие станции сдвинуто.</div>
+          </div>
+        </div>
+
+      </div>
+
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6 py-6 border-b border-slate-700/80 items-center">
         <div class="bg-slate-900/60 p-5 rounded-2xl border border-slate-800">
           <div class="text-xs uppercase text-slate-400 font-semibold mb-1">Отправление</div>
@@ -167,16 +213,20 @@
       </div>
 
       <div class="pt-4">
-        <h3 class="text-sm uppercase tracking-wider text-slate-400 font-bold mb-3">Расписание и остановки по пути следования</h3>
-        <div class="bg-slate-900/80 rounded-2xl border border-slate-800 overflow-x-auto">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <h3 class="text-sm uppercase tracking-wider text-slate-400 font-bold">Расписание и остановки по пути следования</h3>
+          <span class="text-xs text-slate-400">Цветом выделено текущее положение поезда</span>
+        </div>
+        <div class="bg-slate-900/80 rounded-2xl border border-slate-800 overflow-x-auto shadow-xl">
           <table class="w-full text-left text-xs md:text-sm">
-            <thead class="bg-slate-800 text-slate-400 uppercase text-[11px]">
+            <thead class="bg-slate-800 text-slate-400 uppercase text-[11px] border-b border-slate-700/60">
               <tr>
                 <th class="p-3">Станция</th>
+                <th class="p-3">Статус движения</th>
                 <th class="p-3">Прибытие</th>
                 <th class="p-3">Стоянка</th>
                 <th class="p-3">Отправление</th>
-                <th class="p-3 text-amber-400">Платформа или путь</th>
+                <th class="p-3 text-amber-400">Платформа / путь</th>
               </tr>
             </thead>
             <tbody id="stopsTableBody" class="divide-y divide-slate-800">
@@ -249,9 +299,11 @@
       }
     });
 
-    searchBtn.addEventListener('click', loadTrainData);
+    let livePollInterval = null;
 
-    async function loadTrainData() {
+    searchBtn.addEventListener('click', () => loadTrainData(false));
+
+    async function loadTrainData(isRefresh = false) {
       const num = trainInput.value.trim();
       const fCity = fromCity.value.trim();
       const tCity = toCity.value.trim();
@@ -262,7 +314,7 @@
         return;
       }
 
-      if (!selectedUid) {
+      if (!selectedUid && !isRefresh) {
         try {
           const sRes = await fetch(`/api/suggest?q=${encodeURIComponent(num)}`);
           const sData = await sRes.json();
@@ -283,9 +335,11 @@
         }
       }
 
-      emptyState.classList.add('hidden');
-      trainCard.classList.add('hidden');
-      loadingState.classList.remove('hidden');
+      if (!isRefresh) {
+        emptyState.classList.add('hidden');
+        trainCard.classList.add('hidden');
+        loadingState.classList.remove('hidden');
+      }
 
       try {
         const params = new URLSearchParams({
@@ -323,23 +377,128 @@
         document.getElementById('cardShelves').textContent = info.shelves;
         document.getElementById('cardSockets').textContent = info.sockets;
 
+        // ==========================================
+        // ОБНОВЛЕНИЕ ЖИВОГО ТРЕКЕРА (LIVE TRACKER)
+        // ==========================================
+        const live = info.live_status || {};
+        const pulse = document.getElementById('liveStatusPulse');
+        const stateBadge = document.getElementById('liveStateBadge');
+        const delayBadge = document.getElementById('liveDelayBadge');
+        const headline = document.getElementById('liveHeadline');
+        const subtext = document.getElementById('liveSubtext');
+        const progressBar = document.getElementById('liveProgressBar');
+        const passedText = document.getElementById('livePassedStationsText');
+        const timeSyncText = document.getElementById('liveTimeSyncText');
+        const delayAlert = document.getElementById('liveDelayAlert');
+        const delayAlertText = document.getElementById('liveDelayAlertText');
+
+        // Пульс и бейдж статуса
+        if (live.state === 'in_transit') {
+          pulse.className = 'w-3 h-3 rounded-full bg-emerald-500 animate-pulse shadow-lg shadow-emerald-500/50';
+          stateBadge.className = 'text-xs font-black uppercase tracking-wider text-emerald-400';
+        } else if (live.state === 'standing') {
+          pulse.className = 'w-3 h-3 rounded-full bg-amber-400 animate-pulse shadow-lg shadow-amber-400/50';
+          stateBadge.className = 'text-xs font-black uppercase tracking-wider text-amber-300';
+        } else if (live.state === 'not_departed') {
+          pulse.className = 'w-3 h-3 rounded-full bg-sky-400 shadow-md shadow-sky-400/50';
+          stateBadge.className = 'text-xs font-black uppercase tracking-wider text-sky-400';
+        } else {
+          pulse.className = 'w-3 h-3 rounded-full bg-slate-400';
+          stateBadge.className = 'text-xs font-black uppercase tracking-wider text-slate-400';
+        }
+        stateBadge.textContent = live.state_label || 'ПО РАСПИСАНИЮ';
+
+        // Бейдж задержки / опережения
+        const delayMin = live.delay_minutes || 0;
+        if (delayMin > 0) {
+          delayBadge.className = 'text-xs font-bold px-2.5 py-1 rounded-full bg-red-950/90 text-red-300 border border-red-700/80 animate-pulse';
+          delayBadge.textContent = `⚠️ Опоздание +${delayMin} мин`;
+        } else if (delayMin < 0) {
+          delayBadge.className = 'text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-700';
+          delayBadge.textContent = `Опережение ${delayMin} мин`;
+        } else {
+          delayBadge.className = 'text-xs font-bold px-2.5 py-1 rounded-full bg-slate-800 text-emerald-400 border border-slate-700';
+          delayBadge.textContent = '✓ По расписанию';
+        }
+
+        headline.textContent = live.headline || 'Маршрут загружен';
+        subtext.textContent = live.subtext || '';
+
+        // Прогресс-бар
+        const pct = Math.max(0, Math.min(100, live.progress_pct || 0));
+        progressBar.style.width = `${pct}%`;
+        passedText.textContent = `Пройдено ${live.passed_count || 0} из ${live.total_count || (info.stops || []).length} станций (${pct}%)`;
+        timeSyncText.textContent = `Обновлено: ${live.last_sync || new Date().toLocaleTimeString('ru-RU')}`;
+
+        // Плашка оповещения об опоздании
+        if (delayMin > 0) {
+          delayAlert.classList.remove('hidden');
+          const reasonStr = live.delay_reason && live.delay_reason !== 'По расписанию' ? `Причина: ${live.delay_reason}.` : '';
+          delayAlertText.textContent = `Поезд задерживается на ${delayMin} мин. ${reasonStr} Расчетное время прибытия на последующие станции скорректировано с учетом задержки.`;
+        } else {
+          delayAlert.classList.add('hidden');
+        }
+
+        // ==========================================
+        // ТАБЛИЦА СТАНЦИЙ С ПОДСВЕТКОЙ ДВИЖЕНИЯ
+        // ==========================================
         const tbody = document.getElementById('stopsTableBody');
-        tbody.innerHTML = (info.stops || []).map(st => `
-          <tr class="hover:bg-slate-800/50">
-            <td class="p-3 font-semibold text-white">${st.station}</td>
-            <td class="p-3 text-slate-300">${st.arrival}</td>
-            <td class="p-3 text-amber-400">${st.stop_min}</td>
-            <td class="p-3 text-slate-300">${st.departure}</td>
-            <td class="p-3 font-bold text-amber-300">${st.platform}</td>
-          </tr>
-        `).join('');
+        tbody.innerHTML = (info.stops || []).map(st => {
+          let rowClass = 'hover:bg-slate-800/50 transition';
+          let statusBadge = `<span class="text-[11px] text-slate-500 font-medium">По графику</span>`;
+
+          if (st.status === 'passed') {
+            rowClass = 'opacity-60 hover:opacity-100 hover:bg-slate-800/40 transition bg-slate-950/20';
+            statusBadge = `<span class="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400 bg-slate-800/80 px-2 py-0.5 rounded-md">✓ Пройдена</span>`;
+          } else if (st.status === 'standing') {
+            rowClass = 'bg-amber-950/30 border-l-4 border-amber-500 hover:bg-amber-950/40 transition shadow-inner';
+            statusBadge = `<span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-300 bg-amber-950/90 border border-amber-600/70 px-2 py-0.5 rounded-md shadow"><span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>📍 Стоянка</span>`;
+          } else if (st.status === 'next') {
+            rowClass = 'bg-sky-950/30 border-l-4 border-sky-500 hover:bg-sky-950/40 transition font-medium shadow-inner';
+            statusBadge = `<span class="inline-flex items-center gap-1 text-[11px] font-bold text-sky-300 bg-sky-950/90 border border-sky-600/70 px-2 py-0.5 rounded-md shadow">🚆 Следующая</span>`;
+          }
+
+          // Отображение времен с учетом задержки
+          let arrDisplay = st.arrival;
+          if (st.has_delay && st.actual_arrival && st.actual_arrival !== '—' && st.arrival !== '—' && st.actual_arrival !== st.arrival) {
+            arrDisplay = `<span class="line-through text-slate-500 text-[11px] block">${st.arrival}</span><span class="text-amber-300 font-bold">${st.actual_arrival}</span>`;
+          }
+
+          let depDisplay = st.departure;
+          if (st.has_delay && st.actual_departure && st.actual_departure !== '—' && st.departure !== '—' && st.actual_departure !== st.departure) {
+            depDisplay = `<span class="line-through text-slate-500 text-[11px] block">${st.departure}</span><span class="text-amber-300 font-bold">${st.actual_departure}</span>`;
+          }
+
+          return `
+            <tr class="${rowClass}">
+              <td class="p-3">
+                <div class="font-bold text-white text-xs md:text-sm">${st.station}</div>
+                ${st.time_info ? `<div class="text-[11px] text-slate-400 font-normal mt-0.5">${st.time_info}</div>` : ''}
+              </td>
+              <td class="p-3 whitespace-nowrap">${statusBadge}</td>
+              <td class="p-3 text-slate-300">${arrDisplay}</td>
+              <td class="p-3 text-amber-400">${st.stop_min}</td>
+              <td class="p-3 text-slate-300">${depDisplay}</td>
+              <td class="p-3 font-bold text-amber-300">${st.platform}</td>
+            </tr>
+          `;
+        }).join('');
 
         loadingState.classList.add('hidden');
         trainCard.classList.remove('hidden');
+
+        // Включаем автообновление каждые 30 секунд для актуализации движения
+        clearInterval(livePollInterval);
+        livePollInterval = setInterval(() => {
+          loadTrainData(true);
+        }, 30000);
+
       } catch (err) {
-        loadingState.classList.add('hidden');
-        emptyState.classList.remove('hidden');
-        alert(err.message);
+        if (!isRefresh) {
+          loadingState.classList.add('hidden');
+          emptyState.classList.remove('hidden');
+          alert(err.message);
+        }
       }
     }
   </script>
