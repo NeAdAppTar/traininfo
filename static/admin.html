@@ -29,7 +29,7 @@
   <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 pb-4 border-b border-slate-700">
     <div>
       <h1 class="text-2xl md:text-3xl font-black text-white flex items-center gap-2">
-        <span class="bg-red-600 text-white text-base font-bold px-2.5 py-1 rounded-lg">⚙️ Админ</span>
+        <span class="bg-red-600 text-white text-base font-bold px-2.5 py-1 rounded-lg">Админ</span>
         Управление составами, типами и платформами
       </h1>
       <p class="text-xs text-slate-400 mt-1">Единый справочник модификаций, вагонов и переопределений</p>
@@ -55,10 +55,10 @@
     <!-- Вкладки навигации -->
     <div class="flex flex-wrap gap-2 border-b border-slate-800 pb-2">
       <button id="tabBtnTypes" onclick="switchTab('types')" class="tab-active px-5 py-2.5 rounded-xl font-bold text-sm bg-slate-800 border border-slate-700 text-slate-300 transition flex items-center gap-2">
-        <span>📋</span> Справочник типов поездов и вагонов
+        Справочник типов поездов и вагонов
       </button>
       <button id="tabBtnTrains" onclick="switchTab('trains')" class="px-5 py-2.5 rounded-xl font-bold text-sm bg-slate-800 border border-slate-700 text-slate-300 transition flex items-center gap-2">
-        <span>🚆</span> Список составов по номерам
+        Список составов по номерам
       </button>
     </div>
 
@@ -76,10 +76,10 @@
         </div>
         <div class="flex flex-wrap items-center gap-2 shrink-0">
           <button onclick="resetToDefaultTypes()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-4 py-2.5 rounded-xl border border-slate-700 transition flex items-center gap-2 text-xs">
-            <span>🔄</span> Обновить до 26 типов
+            Обновить до 26 типов
           </button>
           <button onclick="openTypeModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-2.5 rounded-xl transition flex items-center gap-2 text-xs shadow-lg shadow-emerald-900/30">
-            <span>➕</span> Добавить новый тип
+            Добавить новый тип
           </button>
         </div>
       </div>
@@ -100,7 +100,7 @@
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 pb-3 border-b border-slate-700/80">
           <div>
             <h2 class="text-lg font-black text-white flex items-center gap-2">
-              <span>🚆</span> Список составов по номерам в базе
+              Список составов по номерам в базе
             </h2>
             <p class="text-xs text-slate-400 mt-0.5">Все поезда из этого списка сохраняются в базе данных SQLite (cache.db) навсегда.</p>
           </div>
@@ -108,8 +108,8 @@
             <span id="trainsCountBadge" class="bg-red-950/80 border border-red-800/60 text-red-300 font-bold px-3 py-1 rounded-full text-xs">
               Загрузка...
             </span>
-            <button onclick="loadAdminTrains()" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 transition text-xs" title="Обновить список">
-              🔄
+            <button onclick="loadAdminTrains()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 transition text-xs font-semibold" title="Обновить список">
+              Обновить
             </button>
           </div>
         </div>
@@ -168,7 +168,6 @@
         <!-- Выбор готового унифицированного типа -->
         <div class="bg-slate-900/90 border border-amber-500/40 rounded-2xl p-4">
           <div class="flex items-center gap-2 mb-2">
-            <span class="text-amber-400 text-base">⚡</span>
             <label class="text-xs font-bold uppercase tracking-wider text-amber-300">Быстрое применение унифицированного типа:</label>
           </div>
           <select id="presetSelect" onchange="applyPresetToTrain()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-amber-400">
@@ -181,7 +180,6 @@
         <div class="bg-slate-900/90 border border-red-900/70 rounded-2xl p-5 space-y-3 shadow-lg">
           <div class="flex flex-wrap items-center justify-between gap-2">
             <div class="flex items-center gap-2">
-              <span class="text-red-400 text-lg">⏱️</span>
               <label class="text-xs font-black uppercase tracking-wider text-red-400">Информация об опоздании и задержке рейса</label>
             </div>
             <span id="delayPreviewBadge" class="text-xs font-bold px-3 py-1 rounded-full bg-slate-800 text-emerald-400 border border-slate-700">
@@ -238,7 +236,7 @@
 
         <!-- Таблица платформ станций -->
         <div>
-          <h3 class="text-sm font-bold text-amber-400 mb-2">📍 Платформы станций маршрута (ручная фиксация)</h3>
+          <h3 class="text-sm font-bold text-amber-400 mb-2">Платформы станций маршрута (ручная фиксация)</h3>
           <div class="bg-slate-900/90 rounded-2xl border border-slate-800 overflow-x-auto max-h-80 overflow-y-auto">
             <table class="w-full text-left text-xs">
               <thead class="bg-slate-800 text-slate-400 uppercase text-[10px] sticky top-0">
@@ -256,7 +254,7 @@
         </div>
 
         <button onclick="saveTrainData()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 rounded-xl transition shadow-lg shadow-emerald-900/40">
-          💾 Сохранить изменения поезда в базе
+          Сохранить изменения поезда в базе
         </button>
       </div>
 
@@ -664,10 +662,10 @@
           </td>
           <td class="p-3 text-xs">
             ${t.has_override 
-              ? `<span class="bg-emerald-950/80 border border-emerald-700/60 text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full">✓ Настроен вручную</span>`
+              ? `<span class="bg-emerald-950/80 border border-emerald-700/60 text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full">Настроен вручную</span>`
               : `<span class="bg-slate-800 text-slate-400 text-[10px] font-medium px-2 py-0.5 rounded-full">Автоопределение</span>`
             }
-            ${t.delay_minutes > 0 ? `<div class="mt-1"><span class="bg-red-950/80 border border-red-700/80 text-red-300 text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">⚠️ +${t.delay_minutes} мин</span></div>` : ''}
+            ${t.delay_minutes > 0 ? `<div class="mt-1"><span class="bg-red-950/80 border border-red-700/80 text-red-300 text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">+${t.delay_minutes} мин</span></div>` : ''}
           </td>
           <td class="p-3 text-xs text-right whitespace-nowrap space-x-1">
             <button onclick="selectTrain('${t.uid}', '${t.number}')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white font-semibold rounded-lg border border-slate-700 transition">

@@ -508,6 +508,15 @@ def compute_live_progress(stops: list, delay_min: int = 0, delay_reason: str = "
     first_dep = (first_dep_planned + delay_td) if first_dep_planned else None
     last_arr = (last_arr_planned + delay_td) if last_arr_planned else None
 
+    start_dt = first_dep_planned or first_dep
+    start_date = start_dt.date() if start_dt else None
+    dep_date = start_dt.strftime("%d.%m.%Y") if start_dt else ""
+
+    end_dt = last_arr or last_arr_planned
+    arr_date = end_dt.strftime("%d.%m.%Y") if end_dt else ""
+    total_days_diff = max(0, (end_dt.date() - start_date).days) if (end_dt and start_date) else 0
+    is_multi_day = total_days_diff > 0
+
     enriched_stops = []
     passed_count = 0
     standing_stop = None
@@ -530,26 +539,43 @@ def compute_live_progress(stops: list, delay_min: int = 0, delay_reason: str = "
             st_status = "passed"
             passed_count += 1
             last_passed_stop = st
-            time_info = f"✓ Пройдена в {dep_act.strftime('%H:%M') if dep_act else arr_act.strftime('%H:%M')}"
+            time_info = f"Пройдена в {dep_act.strftime('%H:%M') if dep_act else arr_act.strftime('%H:%M')}"
         elif arr_act and dep_act and arr_act <= now <= dep_act:
             st_status = "standing"
             standing_stop = st
             mins_left = max(1, int((dep_act - now).total_seconds() // 60))
-            time_info = f"📍 Стоянка еще {mins_left} мин (до {dep_act.strftime('%H:%M')})"
+            time_info = f"Стоянка еще {mins_left} мин (до {dep_act.strftime('%H:%M')})"
         elif check_arr and now < check_arr:
             if next_stop is None and (standing_stop is None):
                 st_status = "next"
                 next_stop = st
                 mins_to_arr = max(1, int((check_arr - now).total_seconds() // 60))
-                time_info = f"🚆 Прибытие через {mins_to_arr} мин (в {check_arr.strftime('%H:%M')})"
+                time_info = f"Прибытие через {mins_to_arr} мин (в {check_arr.strftime('%H:%M')})"
             else:
                 st_status = "upcoming"
+
+        arr_dt_used = arr_act or arr_p
+        dep_dt_used = dep_act or dep_p
+
+        st_arr_date = arr_dt_used.strftime("%d.%m.%Y") if arr_dt_used else ""
+        st_dep_date = dep_dt_used.strftime("%d.%m.%Y") if dep_dt_used else ""
+
+        if i == 0:
+            st_days_diff = 0
+        else:
+            arr_diff = (arr_dt_used.date() - start_date).days if (arr_dt_used and start_date) else 0
+            dep_diff = (dep_dt_used.date() - start_date).days if (dep_dt_used and start_date) else 0
+            st_days_diff = max(0, max(arr_diff, dep_diff))
 
         item = dict(st)
         item["status"] = st_status
         item["time_info"] = time_info
         item["actual_arrival"] = arr_act.strftime("%H:%M") if arr_act else "—"
         item["actual_departure"] = dep_act.strftime("%H:%M") if dep_act else "—"
+        item["arr_date"] = st_arr_date
+        item["dep_date"] = st_dep_date
+        item["days_diff"] = st_days_diff
+        item["is_next_day"] = st_days_diff > 0
         item["has_delay"] = delay_min != 0
         enriched_stops.append(item)
 
@@ -615,6 +641,10 @@ def compute_live_progress(stops: list, delay_min: int = 0, delay_reason: str = "
         "delay_label": delay_label,
         "delay_reason": delay_reason or ("По расписанию" if delay_min == 0 else f"Задержка {delay_min} мин"),
         "last_sync": now.strftime("%H:%M:%S"),
+        "dep_date": dep_date,
+        "arr_date": arr_date,
+        "days_diff": total_days_diff,
+        "is_multi_day": is_multi_day,
         "stops": enriched_stops
     }
 
@@ -901,6 +931,10 @@ async def get_train_details(
         )
         cached["live_status"] = live_data
         cached["stops"] = live_data["stops"]
+        cached["dep_date"] = live_data.get("dep_date", cached.get("dep_date", ""))
+        cached["arr_date"] = live_data.get("arr_date", cached.get("arr_date", ""))
+        cached["days_diff"] = live_data.get("days_diff", cached.get("days_diff", 0))
+        cached["is_multi_day"] = live_data.get("is_multi_day", cached.get("is_multi_day", False))
         cached["from_cache"] = True
         return cached
 
@@ -986,6 +1020,18 @@ async def get_train_details(
 
         stock_info = detect_rolling_stock(full_number, route_title, carrier_title, subtype_title)
 
+        first_dep_raw = first_stop.get("departure") or t_data.get("start_time") or ""
+        last_arr_raw = last_stop.get("arrival") or ""
+
+        target_dt_obj = datetime.strptime(target_date, "%Y-%m-%d")
+        dt_start = parse_dt(first_dep_raw) or target_dt_obj
+        dt_end = parse_dt(last_arr_raw) or dt_start
+
+        dep_date = dt_start.strftime("%d.%m.%Y")
+        arr_date = dt_end.strftime("%d.%m.%Y")
+        days_diff = max(0, (dt_end.date() - dt_start.date()).days)
+        is_multi_day = days_diff > 0
+
         result = {
             "number": full_number,
             "uid": uid,
@@ -995,6 +1041,10 @@ async def get_train_details(
             "arr_station": arr_station,
             "dep_time": dep_time or "—",
             "arr_time": arr_time or "—",
+            "dep_date": dep_date,
+            "arr_date": arr_date,
+            "days_diff": days_diff,
+            "is_multi_day": is_multi_day,
             "duration": duration_str,
             "dep_platform": dep_platform,
             "arr_platform": arr_platform,
@@ -1019,6 +1069,10 @@ async def get_train_details(
         )
         result["live_status"] = live_data
         result["stops"] = live_data["stops"]
+        result["dep_date"] = live_data.get("dep_date", result.get("dep_date", dep_date))
+        result["arr_date"] = live_data.get("arr_date", result.get("arr_date", arr_date))
+        result["days_diff"] = live_data.get("days_diff", result.get("days_diff", days_diff))
+        result["is_multi_day"] = live_data.get("is_multi_day", result.get("is_multi_day", is_multi_day))
         return result
 
 
