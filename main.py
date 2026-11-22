@@ -468,6 +468,30 @@ def apply_overrides(uid: str, data: dict) -> dict:
     return data
 
 
+def parse_dt(s):
+    if not s:
+        return None
+    if isinstance(s, datetime):
+        return s
+    clean = str(s).strip().replace("T", " ")
+    if "+" in clean:
+        clean = clean.split("+")[0]
+    for f in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d", "%d.%m.%Y"):
+        try:
+            return datetime.strptime(clean[:19], f)
+        except ValueError:
+            pass
+    return None
+
+
+def normalize_train_num(n: str) -> str:
+    if not n:
+        return ""
+    n = re.sub(r"\s+", "", str(n).lower())
+    trans = str.maketrans("abcekmnoprtux", "абсекмнортух")
+    return n.translate(trans)
+
+
 def compute_live_progress(stops: list, delay_min: int = 0, delay_reason: str = "", current_time: datetime | None = None) -> dict:
     now = current_time or datetime.now()
     if not stops:
@@ -484,21 +508,12 @@ def compute_live_progress(stops: list, delay_min: int = 0, delay_reason: str = "
             "delay_label": "По расписанию",
             "delay_reason": "",
             "last_sync": now.strftime("%H:%M:%S"),
+            "dep_date": "",
+            "arr_date": "",
+            "days_diff": 0,
+            "is_multi_day": False,
             "stops": []
         }
-
-    def parse_dt(s):
-        if not s:
-            return None
-        clean = s.replace("T", " ")
-        if "+" in clean:
-            clean = clean.split("+")[0]
-        for f in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
-            try:
-                return datetime.strptime(clean[:19], f)
-            except ValueError:
-                pass
-        return None
 
     from datetime import timedelta
     delay_td = timedelta(minutes=delay_min)
@@ -918,7 +933,8 @@ async def get_train_details(
     if not YANDEX_API_KEY:
         raise HTTPException(status_code=500, detail="Не задан YANDEX_API_KEY")
 
-    target_date = date or datetime.now().strftime("%Y-%m-%d")
+    dt_parsed = parse_dt(date)
+    target_date = dt_parsed.strftime("%Y-%m-%d") if dt_parsed else (date or datetime.now().strftime("%Y-%m-%d"))
     cache_key = f"{uid}_{from_city}_{to_city}_{number}_{target_date}"
 
     cached = get_cached_thread(cache_key)
@@ -950,67 +966,79 @@ async def get_train_details(
                     params={"apikey": YANDEX_API_KEY, "from": f_code, "to": t_code, "date": target_date, "transport_types": "train,suburban"}
                 )
                 if s_resp.status_code == 200:
+                    target_norm = normalize_train_num(number)
+                    target_digits = re.sub(r"\D", "", number).lstrip("0")
                     for seg in s_resp.json().get("segments", []):
                         th = seg.get("thread", {})
                         t_num = th.get("number", "")
-                        if number.lower() in t_num.lower():
+                        th_norm = normalize_train_num(t_num)
+                        th_digits = re.sub(r"\D", "", t_num).lstrip("0")
+                        if target_norm and (target_norm in th_norm or th_norm in target_norm):
+                            uid = th.get("uid")
+                            break
+                        if target_digits and target_digits == th_digits:
                             uid = th.get("uid")
                             break
 
-        if uid:
-            resp = await client.get(
-                f"{BASE_URL}/thread/",
-                params={"apikey": YANDEX_API_KEY, "uid": uid, "date": target_date, "show_systems": "all"}
-            )
-            if resp.status_code != 200:
-                resp = await client.get(f"{BASE_URL}/thread/", params={"apikey": YANDEX_API_KEY, "uid": uid, "show_systems": "all"})
-            if resp.status_code != 200:
-                raise HTTPException(status_code=404, detail="Поезд не найден в API")
-
-            t_data = resp.json()
-            stops_raw = t_data.get("stops", [])
-
-            formatted_stops = []
-            for st in stops_raw:
-                st_obj = st.get("station", {})
-                arr = st.get("arrival")
-                dep = st.get("departure")
-                stop_sec = st.get("stop_time")
-                stop_min = int(stop_sec // 60) if stop_sec else 0
-
-                formatted_stops.append({
-                    "station": st_obj.get("title", ""),
-                    "station_code": st_obj.get("code", ""),
-                    "arrival_raw": arr,
-                    "departure_raw": dep,
-                    "arrival": arr[11:16] if arr else "—",
-                    "departure": dep[11:16] if dep else "—",
-                    "stop_min": f"{stop_min} мин" if stop_min else "—",
-                    "platform": st.get("platform") or "—"
-                })
-
-            first_stop = stops_raw[0] if stops_raw else {}
-            last_stop = stops_raw[-1] if stops_raw else {}
-
-            full_number = t_data.get("number", number or "Б/Н")
-            route_title = t_data.get("title", "Маршрут")
-            carrier_title = (t_data.get("carrier") or {}).get("title", "РЖД")
-            subtype_title = (t_data.get("transport_subtype") or {}).get("title", "Поезд")
-            days_str = t_data.get("days", "По расписанию")
-
-            dep_station = (first_stop.get("station") or {}).get("title", route_title.split("—")[0].strip())
-            arr_station = (last_stop.get("station") or {}).get("title", route_title.split("—")[-1].strip())
-
-            dep_time = (first_stop.get("departure") or t_data.get("start_time") or "")[11:16]
-            arr_time = (last_stop.get("arrival") or "")[11:16]
-            dep_platform = first_stop.get("platform") or "Уточняется на вокзале"
-            arr_platform = last_stop.get("platform") or "По факту прибытия"
-
-            total_sec = last_stop.get("duration") or 0
-            hours, mins = divmod(int(total_sec // 60), 60)
-            duration_str = f"{hours} ч {mins} мин" if total_sec else "По графику"
-        else:
+        if not uid:
+            if from_city and to_city:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Поезд №{number} не найден в расписании {from_city} — {to_city} на указанную дату. Проверьте правильность номера или даты."
+                )
             raise HTTPException(status_code=400, detail="Укажите корректный номер или станции маршрута")
+
+        resp = await client.get(
+            f"{BASE_URL}/thread/",
+            params={"apikey": YANDEX_API_KEY, "uid": uid, "date": target_date, "show_systems": "all"}
+        )
+        if resp.status_code != 200:
+            resp = await client.get(f"{BASE_URL}/thread/", params={"apikey": YANDEX_API_KEY, "uid": uid, "show_systems": "all"})
+        if resp.status_code != 200:
+            raise HTTPException(status_code=404, detail="Поезд не найден в API")
+
+        t_data = resp.json()
+        stops_raw = t_data.get("stops", [])
+
+        formatted_stops = []
+        for st in stops_raw:
+            st_obj = st.get("station", {})
+            arr = st.get("arrival")
+            dep = st.get("departure")
+            stop_sec = st.get("stop_time")
+            stop_min = int(stop_sec // 60) if stop_sec else 0
+
+            formatted_stops.append({
+                "station": st_obj.get("title", ""),
+                "station_code": st_obj.get("code", ""),
+                "arrival_raw": arr,
+                "departure_raw": dep,
+                "arrival": arr[11:16] if arr else "—",
+                "departure": dep[11:16] if dep else "—",
+                "stop_min": f"{stop_min} мин" if stop_min else "—",
+                "platform": st.get("platform") or "—"
+            })
+
+        first_stop = stops_raw[0] if stops_raw else {}
+        last_stop = stops_raw[-1] if stops_raw else {}
+
+        full_number = t_data.get("number", number or "Б/Н")
+        route_title = t_data.get("title", "Маршрут")
+        carrier_title = (t_data.get("carrier") or {}).get("title", "РЖД")
+        subtype_title = (t_data.get("transport_subtype") or {}).get("title", "Поезд")
+        days_str = t_data.get("days", "По расписанию")
+
+        dep_station = (first_stop.get("station") or {}).get("title", route_title.split("—")[0].strip())
+        arr_station = (last_stop.get("station") or {}).get("title", route_title.split("—")[-1].strip())
+
+        dep_time = (first_stop.get("departure") or t_data.get("start_time") or "")[11:16]
+        arr_time = (last_stop.get("arrival") or "")[11:16]
+        dep_platform = first_stop.get("platform") or "Уточняется на вокзале"
+        arr_platform = last_stop.get("platform") or "По факту прибытия"
+
+        total_sec = last_stop.get("duration") or 0
+        hours, mins = divmod(int(total_sec // 60), 60)
+        duration_str = f"{hours} ч {mins} мин" if total_sec else "По графику"
 
         with sqlite3.connect(DB_PATH) as conn:
             conn.execute(
@@ -1023,7 +1051,7 @@ async def get_train_details(
         first_dep_raw = first_stop.get("departure") or t_data.get("start_time") or ""
         last_arr_raw = last_stop.get("arrival") or ""
 
-        target_dt_obj = datetime.strptime(target_date, "%Y-%m-%d")
+        target_dt_obj = parse_dt(target_date) or datetime.now()
         dt_start = parse_dt(first_dep_raw) or target_dt_obj
         dt_end = parse_dt(last_arr_raw) or dt_start
 

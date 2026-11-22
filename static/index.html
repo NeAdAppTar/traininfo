@@ -382,8 +382,14 @@
           date: date
         });
         const resp = await fetch(`/api/train?${params.toString()}`);
-        const info = await resp.json();
-        if (!resp.ok) throw new Error(info.detail || 'Ошибка загрузки');
+        let info = null;
+        const text = await resp.text();
+        try {
+          info = JSON.parse(text);
+        } catch (e) {
+          throw new Error(text || `Ошибка сервера (${resp.status})`);
+        }
+        if (!resp.ok) throw new Error(info.detail || info.message || `Ошибка запроса (${resp.status})`);
 
         if (info.uid) selectedUid = info.uid;
 
