@@ -5,7 +5,10 @@ import sqlite3
 import time
 from datetime import datetime
 import httpx
-from bs4 import BeautifulSoup
+try:
+    from bs4 import BeautifulSoup
+except ImportError:
+    BeautifulSoup = None
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Header, Query, Body
 from fastapi.responses import FileResponse, JSONResponse
@@ -511,8 +514,12 @@ def normalize_train_num(n: str) -> str:
     if not n:
         return ""
     n = re.sub(r"\s+", "", str(n).lower())
-    trans = str.maketrans("abcekmnoprtux", "абсекмнортух")
-    return n.translate(trans)
+    mapping = {
+        "a": "а", "b": "в", "c": "с", "e": "е", "h": "н",
+        "k": "к", "m": "м", "o": "о", "p": "р", "t": "т",
+        "x": "х", "y": "у"
+    }
+    return "".join(mapping.get(ch, ch) for ch in n)
 
 
 def compute_live_progress(stops: list, delay_min: int = 0, delay_reason: str = "", current_time: datetime | None = None) -> dict:
@@ -939,22 +946,33 @@ async def suggest_trains(q: str = Query(..., min_length=1)):
                     headers={"User-Agent": "Mozilla/5.0"}
                 )
                 if resp.status_code == 200:
-                    soup = BeautifulSoup(resp.text, "html.parser")
-                    for a in soup.find_all("a", href=re.compile(r"/thread/")):
-                        match = re.search(r"/thread/([^/?#]+)", a.get("href", ""))
-                        if not match:
-                            continue
-                        uid = match.group(1)
-                        if uid in seen_uids:
-                            continue
-                        text = " ".join(a.get_text(" ", strip=True).split())
-                        if not text:
-                            continue
-                        num_match = re.match(r"^([0-9]{1,4}[А-Яа-яA-Za-z/]*)\s+(.*)$", text)
-                        t_num, t_title = (num_match.group(1), num_match.group(2)) if num_match else (clean_q.upper(), text)
+                    if BeautifulSoup:
+                        soup = BeautifulSoup(resp.text, "html.parser")
+                        for a in soup.find_all("a", href=re.compile(r"/thread/")):
+                            match = re.search(r"/thread/([^/?#]+)", a.get("href", ""))
+                            if not match:
+                                continue
+                            uid = match.group(1)
+                            if uid in seen_uids:
+                                continue
+                            text = " ".join(a.get_text(" ", strip=True).split())
+                            if not text:
+                                continue
+                            num_match = re.match(r"^([0-9]{1,4}[А-Яа-яA-Za-z/]*)\s+(.*)$", text)
+                            t_num, t_title = (num_match.group(1), num_match.group(2)) if num_match else (clean_q.upper(), text)
 
-                        seen_uids.add(uid)
-                        results.append({"number": t_num, "uid": uid, "title": t_title, "carrier": "РЖД"})
+                            seen_uids.add(uid)
+                            results.append({"number": t_num, "uid": uid, "title": t_title, "carrier": "РЖД"})
+                    else:
+                        for match in re.finditer(r'href="[^"]*?/thread/([^"/?#]+)[^"]*?"[^>]*>(.*?)</a>', resp.text, re.DOTALL):
+                            uid = match.group(1)
+                            raw_text = re.sub(r"<[^>]+>", " ", match.group(2)).strip()
+                            if uid in seen_uids or not raw_text:
+                                continue
+                            num_match = re.match(r"^([0-9]{1,4}[А-Яа-яA-Za-z/]*)\s+(.*)$", raw_text)
+                            t_num, t_title = (num_match.group(1), num_match.group(2)) if num_match else (clean_q.upper(), raw_text)
+                            seen_uids.add(uid)
+                            results.append({"number": t_num, "uid": uid, "title": t_title, "carrier": "РЖД"})
             except Exception:
                 pass
 

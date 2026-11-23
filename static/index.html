@@ -87,9 +87,21 @@
         
         <!-- Номер поезда -->
         <div class="md:col-span-6 relative">
-          <label class="block text-xs uppercase tracking-wider text-slate-300 mb-1.5 font-bold">
-            Номер поезда
-          </label>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="block text-xs uppercase tracking-wider text-slate-300 font-bold">
+              Номер поезда
+            </label>
+            <button
+              type="button"
+              id="toggleHelpRouteBtn"
+              class="text-[11px] text-amber-400 hover:text-amber-300 transition flex items-center gap-1 font-semibold cursor-pointer"
+            >
+              <span>Помощь: указать станции</span>
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+          </div>
           <div class="relative">
             <input
               id="trainInput"
@@ -196,29 +208,44 @@
 
       </div>
 
-      <!-- Дополнительные поля для редких маршрутов (если поезд новый) -->
-      <div id="newRouteContainer" class="hidden pt-3 border-t border-[#1f2b3e] grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div>
-          <label class="block text-xs uppercase tracking-wider text-amber-400 mb-1 font-semibold">
-            Поезд не найден в базе. Станция отправления:
-          </label>
-          <input
-            id="fromCity"
-            type="text"
-            placeholder="Например: Курск"
-            class="w-full bg-[#0a0e16] border border-amber-600/50 focus:border-amber-400 rounded-lg px-3.5 py-2 text-sm text-white outline-none"
-          />
+      <!-- Дополнительные поля для маршрута (помощь при поиске нового или редкого поезда) -->
+      <div id="newRouteContainer" class="hidden pt-3 border-t border-[#1f2b3e] space-y-2.5">
+        <div class="flex items-center justify-between text-xs text-amber-400 font-bold">
+          <span class="flex items-center gap-1.5">
+            <svg class="w-4 h-4 text-amber-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="16" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+            Помощь при поиске: укажите станции маршрута
+          </span>
+          <button type="button" onclick="document.getElementById('newRouteContainer').classList.add('hidden')" class="text-slate-400 hover:text-white text-xs cursor-pointer">
+            Скрыть ✕
+          </button>
         </div>
-        <div>
-          <label class="block text-xs uppercase tracking-wider text-amber-400 mb-1 font-semibold">
-            Станция прибытия:
-          </label>
-          <input
-            id="toCity"
-            type="text"
-            placeholder="Например: Москва"
-            class="w-full bg-[#0a0e16] border border-amber-600/50 focus:border-amber-400 rounded-lg px-3.5 py-2 text-sm text-white outline-none"
-          />
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs uppercase tracking-wider text-slate-300 mb-1 font-semibold">
+              Станция отправления (Откуда):
+            </label>
+            <input
+              id="fromCity"
+              type="text"
+              placeholder="Например: Курск, Москва, Адлер..."
+              class="w-full bg-[#0a0e16] border border-amber-600/50 focus:border-amber-400 rounded-lg px-3.5 py-2 text-sm text-white outline-none"
+            />
+          </div>
+          <div>
+            <label class="block text-xs uppercase tracking-wider text-slate-300 mb-1 font-semibold">
+              Станция прибытия (Куда):
+            </label>
+            <input
+              id="toCity"
+              type="text"
+              placeholder="Например: Москва, Санкт-Петербург..."
+              class="w-full bg-[#0a0e16] border border-amber-600/50 focus:border-amber-400 rounded-lg px-3.5 py-2 text-sm text-white outline-none"
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -618,6 +645,7 @@
     const suggestBox = document.getElementById('suggestBox');
     const searchBtn = document.getElementById('searchBtn');
     const newRouteContainer = document.getElementById('newRouteContainer');
+    const toggleHelpRouteBtn = document.getElementById('toggleHelpRouteBtn');
     const fromCity = document.getElementById('fromCity');
     const toCity = document.getElementById('toCity');
 
@@ -629,9 +657,14 @@
     let debounceTimer = null;
     let livePollInterval = null;
 
+    if (toggleHelpRouteBtn) {
+      toggleHelpRouteBtn.addEventListener('click', () => {
+        newRouteContainer.classList.toggle('hidden');
+      });
+    }
+
     trainInput.addEventListener('input', () => {
       selectedUid = '';
-      newRouteContainer.classList.add('hidden');
       const q = trainInput.value.trim();
       clearTimeout(debounceTimer);
       if (q.length < 1) {
@@ -642,11 +675,14 @@
       debounceTimer = setTimeout(async () => {
         try {
           const res = await fetch(`/api/suggest?q=${encodeURIComponent(q)}`);
-          if (!res.ok) return;
+          if (!res.ok) {
+            renderSuggestions([]);
+            return;
+          }
           const data = await res.json();
           renderSuggestions(data.results || []);
         } catch (e) {
-          console.error(e);
+          renderSuggestions([]);
         }
       }, 250);
     });
@@ -654,6 +690,7 @@
     function renderSuggestions(items) {
       if (!items.length) {
         suggestBox.classList.add('hidden');
+        newRouteContainer.classList.remove('hidden');
         return;
       }
       suggestBox.innerHTML = items.map(i => `
@@ -713,18 +750,20 @@
             if (sData.results && sData.results.length > 0) {
               selectedUid = sData.results[0].uid;
               trainInput.value = sData.results[0].number;
-            } else if (!fCity || !tCity) {
-              newRouteContainer.classList.remove('hidden');
-              alert('Поезд не найден в базе по номеру. Пожалуйста, укажите станции отправления («Откуда») и прибытия («Куда») ниже.');
-              return;
             }
           }
         } catch (e) {
-          if (!fCity || !tCity) {
-            newRouteContainer.classList.remove('hidden');
-            alert('Пожалуйста, укажите станции «Откуда» и «Куда».');
-            return;
-          }
+          console.error(e);
+        }
+
+        // Если поезд не найден в подсказках и станции не заполнены — показываем помощь при поиске
+        if (!selectedUid && (!fCity || !tCity)) {
+          newRouteContainer.classList.remove('hidden');
+          emptyState.classList.remove('hidden');
+          loadingState.classList.add('hidden');
+          trainCard.classList.add('hidden');
+          alert('Поезд не найден в базе по номеру. Пожалуйста, укажите станции («Откуда» и «Куда») в блоке помощи ниже.');
+          return;
         }
       }
 
