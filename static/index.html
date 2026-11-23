@@ -3,42 +3,24 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Мониторинг пассажирских поездов — Информационный сервис РЖД</title>
+  <title>Радар Составов — Определение модели поезда, вагонов и расписания</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    :root {
-      --rzd-red: #E21A1A;
-      --rzd-red-hover: #C51313;
-      --bg-main: #0c1117;
-      --bg-panel: #131922;
-      --bg-card: #171f2b;
-      --border-panel: #222c3d;
-      --border-subtle: #1c2533;
-    }
     body {
-      background-color: var(--bg-main);
+      background-color: #0b0f17;
       color: #e2e8f0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       min-height: 100vh;
     }
-    /* Строгие утилитарные стили */
-    .rzd-panel {
-      background-color: var(--bg-panel);
-      border: 1px solid var(--border-panel);
+    .panel-box {
+      background-color: #121824;
+      border: 1px solid #1f2b3e;
     }
-    .rzd-card {
-      background-color: var(--bg-card);
-      border: 1px solid var(--border-panel);
+    .card-box {
+      background-color: #161f2e;
+      border: 1px solid #233147;
     }
-    .rzd-btn-red {
-      background-color: var(--rzd-red);
-      color: #ffffff;
-      transition: background-color 0.15s ease-in-out;
-    }
-    .rzd-btn-red:hover {
-      background-color: var(--rzd-red-hover);
-    }
-    /* Календарь */
+    /* Интерактивный русский календарь */
     .cal-day {
       width: 32px;
       height: 32px;
@@ -48,14 +30,14 @@
       font-size: 13px;
       border-radius: 6px;
       cursor: pointer;
-      transition: all 0.15s ease;
+      transition: background-color 0.1s ease;
     }
     .cal-day:hover:not(.cal-empty):not(.cal-selected) {
-      background-color: #243042;
+      background-color: #26354a;
       color: #ffffff;
     }
     .cal-selected {
-      background-color: var(--rzd-red) !important;
+      background-color: #dc2626 !important;
       color: #ffffff !important;
       font-weight: 700;
     }
@@ -65,7 +47,7 @@
     }
     .cal-empty {
       cursor: default;
-      opacity: 0.2;
+      opacity: 0.15;
     }
     /* Скроллбар */
     ::-webkit-scrollbar {
@@ -73,57 +55,37 @@
       height: 6px;
     }
     ::-webkit-scrollbar-track {
-      background: #0f1621;
+      background: #0d121c;
     }
     ::-webkit-scrollbar-thumb {
-      background: #273447;
+      background: #233146;
       border-radius: 3px;
     }
   </style>
 </head>
-<body class="flex flex-col min-h-screen">
+<body class="flex flex-col min-h-screen p-4 md:p-8">
 
-  <!-- ОФИЦИАЛЬНАЯ ВЕРХНЯЯ ПАНЕЛЬ СЕРВИСА -->
-  <header class="w-full bg-[#090d13] border-b border-[#1f2937]">
-    <!-- Красная фирменная полоса РЖД -->
-    <div class="h-1 bg-[#E21A1A] w-full"></div>
-
-    <div class="max-w-6xl mx-auto px-4 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3">
-      <div class="flex items-center gap-3">
-        <div class="bg-[#E21A1A] text-white font-black px-3 py-1 rounded text-sm tracking-wider shadow-sm select-none">
+  <!-- ШАПКА И ФОРМА ПОИСКА -->
+  <header class="w-full max-w-5xl mx-auto mb-6">
+    <div class="mb-5">
+      <div class="flex items-center gap-2.5 mb-1">
+        <span class="bg-red-600 text-white font-extrabold px-2.5 py-0.5 rounded text-base tracking-wide select-none">
           РЖД
-        </div>
-        <div>
-          <div class="text-base font-bold text-white tracking-tight flex items-center gap-2">
-            Пассажирский сервис
-            <span class="text-[11px] font-normal uppercase bg-[#182332] text-slate-300 border border-[#2b3a4e] px-2 py-0.5 rounded">
-              Мониторинг движения
-            </span>
-          </div>
-          <div class="text-xs text-slate-400">
-            Информация о поездах, салонах, графике движения и опозданиях
-          </div>
-        </div>
+        </span>
+        <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight text-white">
+          Радар Составов
+        </h1>
       </div>
-
-      <div class="flex items-center gap-6 text-xs text-slate-300">
-        <div class="hidden sm:block text-right">
-          <div class="text-[11px] text-slate-400">Единый информационно-сервисный центр:</div>
-          <div class="text-sm font-bold text-white tracking-wide">8 (800) 775-00-00</div>
-          <div class="text-[10px] text-emerald-400">Бесплатно по РФ • Круглосуточно</div>
-        </div>
-      </div>
+      <p class="text-slate-400 text-sm">
+        Определение модели поезда, схемы вагонов, расписания и платформ по номеру
+      </p>
     </div>
-  </header>
 
-  <!-- ОСНОВНОЙ КОНТЕНТ -->
-  <main class="flex-1 max-w-6xl w-full mx-auto px-4 py-6 space-y-6">
-
-    <!-- ФОРМА ПОИСКА СОСТАВА -->
-    <section class="rzd-panel rounded-xl p-5 shadow-lg space-y-4">
+    <!-- ФОРМА ПОИСКА -->
+    <div class="panel-box rounded-xl p-4 md:p-6 shadow-md space-y-4">
       <div class="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-end">
         
-        <!-- Поле: Номер поезда -->
+        <!-- Номер поезда -->
         <div class="md:col-span-6 relative">
           <label class="block text-xs uppercase tracking-wider text-slate-300 mb-1.5 font-bold">
             Номер поезда
@@ -134,13 +96,13 @@
               type="text"
               placeholder="Например: 715Ч, 702, 072В..."
               autocomplete="off"
-              class="w-full bg-[#0a0f16] border border-[#232e3f] focus:border-[#E21A1A] rounded-lg px-3.5 py-2.5 text-base font-bold text-white placeholder-slate-500 outline-none transition"
+              class="w-full bg-[#0a0e16] border border-[#233147] focus:border-red-500 rounded-lg px-3.5 py-2.5 text-base font-bold text-white placeholder-slate-500 outline-none transition"
             />
-            <div id="suggestBox" class="hidden absolute left-0 right-0 top-full mt-1.5 bg-[#121924] border border-[#263449] rounded-lg shadow-2xl overflow-hidden z-50 max-h-72 overflow-y-auto divide-y divide-[#1d2737]"></div>
+            <div id="suggestBox" class="hidden absolute left-0 right-0 top-full mt-1.5 bg-[#141b29] border border-[#263750] rounded-lg shadow-xl overflow-hidden z-50 max-h-72 overflow-y-auto divide-y divide-[#1e2b40]"></div>
           </div>
         </div>
 
-        <!-- Поле: Дата отправления в российском формате ДД.ММ.ГГГГ -->
+        <!-- Дата отправления: строгий российский ввод ДД.ММ.ГГГГ -->
         <div class="md:col-span-4 relative">
           <div class="flex items-center justify-between mb-1.5">
             <label class="block text-xs uppercase tracking-wider text-slate-300 font-bold">
@@ -150,14 +112,14 @@
               <button
                 type="button"
                 id="btnDateToday"
-                class="text-[11px] bg-[#1a2331] hover:bg-[#253246] text-slate-200 hover:text-white px-2 py-0.5 rounded border border-[#2a384e] transition"
+                class="text-[11px] bg-[#1a2333] hover:bg-[#253249] text-slate-200 hover:text-white px-2 py-0.5 rounded border border-[#2b3a53] transition"
               >
                 Сегодня
               </button>
               <button
                 type="button"
                 id="btnDateTomorrow"
-                class="text-[11px] bg-[#1a2331] hover:bg-[#253246] text-slate-200 hover:text-white px-2 py-0.5 rounded border border-[#2a384e] transition"
+                class="text-[11px] bg-[#1a2333] hover:bg-[#253249] text-slate-200 hover:text-white px-2 py-0.5 rounded border border-[#2b3a53] transition"
               >
                 Завтра
               </button>
@@ -171,13 +133,13 @@
               placeholder="ДД.ММ.ГГГГ"
               maxlength="10"
               autocomplete="off"
-              class="w-full bg-[#0a0f16] border border-[#232e3f] focus:border-[#E21A1A] rounded-lg px-3.5 py-2.5 text-sm font-semibold text-white placeholder-slate-500 outline-none transition font-mono pr-10"
+              class="w-full bg-[#0a0e16] border border-[#233147] focus:border-red-500 rounded-lg px-3.5 py-2.5 text-sm font-semibold text-white placeholder-slate-500 outline-none transition font-mono pr-10"
             />
             <button
               type="button"
               id="calendarToggleBtn"
               class="absolute right-2.5 text-slate-400 hover:text-white p-1 rounded transition"
-              title="Выбрать в календаре"
+              title="Открыть календарь"
             >
               <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
@@ -188,19 +150,19 @@
             </button>
           </div>
 
-          <!-- Всплывающий интерактивный календарь на русском языке -->
+          <!-- Выпадающий русский интерактивный календарь -->
           <div
             id="calendarDropdown"
-            class="hidden absolute left-0 md:right-0 md:left-auto top-full mt-2 w-72 bg-[#141b26] border border-[#28364b] rounded-xl shadow-2xl p-3.5 z-50 select-none"
+            class="hidden absolute left-0 md:right-0 md:left-auto top-full mt-2 w-72 bg-[#151c2b] border border-[#273852] rounded-xl shadow-2xl p-3.5 z-50 select-none"
           >
-            <div class="flex items-center justify-between pb-2 mb-2 border-b border-[#212c3d]">
-              <button type="button" id="calPrevMonth" class="p-1 rounded hover:bg-[#202b3c] text-slate-300 hover:text-white transition">
+            <div class="flex items-center justify-between pb-2 mb-2 border-b border-[#212f45]">
+              <button type="button" id="calPrevMonth" class="p-1 rounded hover:bg-[#212f45] text-slate-300 hover:text-white transition">
                 <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <polyline points="15 18 9 12 15 6"></polyline>
                 </svg>
               </button>
               <span id="calMonthYearLabel" class="text-xs font-bold text-white uppercase tracking-wider"></span>
-              <button type="button" id="calNextMonth" class="p-1 rounded hover:bg-[#202b3c] text-slate-300 hover:text-white transition">
+              <button type="button" id="calNextMonth" class="p-1 rounded hover:bg-[#212f45] text-slate-300 hover:text-white transition">
                 <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <polyline points="9 18 15 12 9 6"></polyline>
                 </svg>
@@ -222,7 +184,7 @@
           <button
             id="searchBtn"
             type="button"
-            class="w-full rzd-btn-red font-bold py-2.5 px-4 rounded-lg text-sm shadow-md flex items-center justify-center gap-2"
+            class="w-full bg-red-600 hover:bg-red-500 active:bg-red-700 text-white font-bold py-2.5 px-4 rounded-lg text-sm shadow transition flex items-center justify-center gap-2"
           >
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="11" cy="11" r="8"></circle>
@@ -234,36 +196,40 @@
 
       </div>
 
-      <!-- Дополнительные поля для редких или новых рейсов (если поезд не в базовом справочнике) -->
-      <div id="newRouteContainer" class="hidden pt-3 border-t border-[#1f2937] grid grid-cols-1 md:grid-cols-2 gap-3">
+      <!-- Дополнительные поля для редких маршрутов (если поезд новый) -->
+      <div id="newRouteContainer" class="hidden pt-3 border-t border-[#1f2b3e] grid grid-cols-1 md:grid-cols-2 gap-3">
         <div>
           <label class="block text-xs uppercase tracking-wider text-amber-400 mb-1 font-semibold">
-            Поезд не найден автоматически. Станция отправления (Откуда):
+            Поезд не найден в базе. Станция отправления:
           </label>
           <input
             id="fromCity"
             type="text"
-            placeholder="Например: Курск, Москва, Санкт-Петербург..."
-            class="w-full bg-[#0a0f16] border border-amber-600/50 rounded-lg px-3.5 py-2 text-sm text-white outline-none focus:border-amber-400"
+            placeholder="Например: Курск"
+            class="w-full bg-[#0a0e16] border border-amber-600/50 focus:border-amber-400 rounded-lg px-3.5 py-2 text-sm text-white outline-none"
           />
         </div>
         <div>
           <label class="block text-xs uppercase tracking-wider text-amber-400 mb-1 font-semibold">
-            Станция назначения (Куда):
+            Станция прибытия:
           </label>
           <input
             id="toCity"
             type="text"
             placeholder="Например: Москва"
-            class="w-full bg-[#0a0f16] border border-amber-600/50 rounded-lg px-3.5 py-2 text-sm text-white outline-none focus:border-amber-400"
+            class="w-full bg-[#0a0e16] border border-amber-600/50 focus:border-amber-400 rounded-lg px-3.5 py-2 text-sm text-white outline-none"
           />
         </div>
       </div>
-    </section>
+    </div>
+  </header>
 
-    <!-- ПЕРВОНАЧАЛЬНЫЙ ЭКРАН -->
-    <section id="emptyState" class="rzd-panel rounded-xl p-10 md:p-14 text-center">
-      <div class="w-14 h-14 mx-auto mb-4 text-slate-400 bg-[#17202c] border border-[#253347] rounded-xl flex items-center justify-center">
+  <!-- ОСНОВНАЯ ОБЛАСТЬ -->
+  <main class="flex-1 w-full max-w-5xl mx-auto flex flex-col justify-center">
+
+    <!-- НАЧАЛЬНЫЙ ЭКРАН -->
+    <section id="emptyState" class="panel-box rounded-xl p-10 md:p-14 text-center my-auto">
+      <div class="w-14 h-14 mx-auto mb-4 text-red-500 bg-red-950/30 border border-red-800/40 rounded-xl flex items-center justify-center">
         <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <rect x="4" y="3" width="16" height="16" rx="2" />
           <path d="M4 11h16" />
@@ -276,29 +242,28 @@
       </div>
       <h2 class="text-lg md:text-xl font-bold text-white mb-1.5">Введите номер поезда и дату</h2>
       <p class="text-slate-400 text-xs md:text-sm max-w-md mx-auto">
-        Система определит модификацию состава, схему салона, расписание, фактическое местоположение и платформы прибытия.
+        Система определит серию состава, схему салона, расписание, фактическое местоположение и платформы прибытия.
       </p>
     </section>
 
     <!-- ИНДИКАТОР ЗАГРУЗКИ -->
-    <section id="loadingState" class="hidden rzd-panel rounded-xl p-12 text-center">
-      <div class="animate-spin w-10 h-10 border-3 border-[#E21A1A] border-t-transparent rounded-full mx-auto mb-3"></div>
-      <p class="text-sm font-semibold text-slate-200">Загрузка данных рейса и нитки движения...</p>
-      <p class="text-xs text-slate-400 mt-1">Опрос системы мониторинга и базы составов</p>
+    <section id="loadingState" class="hidden panel-box rounded-xl p-12 text-center my-auto">
+      <div class="animate-spin w-10 h-10 border-3 border-red-500 border-t-transparent rounded-full mx-auto mb-3"></div>
+      <p class="text-sm font-semibold text-slate-200">Загрузка нитки маршрута и расписания...</p>
     </section>
 
-    <!-- КАРТОЧКА ПОЕЗДА И МАРШРУТА -->
-    <section id="trainCard" class="hidden rzd-panel rounded-xl p-5 md:p-8 shadow-xl space-y-6">
+    <!-- КАРТОЧКА СОСТАВА И МАРШРУТА -->
+    <section id="trainCard" class="hidden panel-box rounded-xl p-5 md:p-7 shadow-xl space-y-6 my-auto">
 
       <!-- ПАСПОРТ РЕЙСА -->
-      <div class="flex flex-wrap items-center justify-between gap-4 pb-5 border-b border-[#202b3c]">
+      <div class="flex flex-wrap items-center justify-between gap-4 pb-5 border-b border-[#1f2b3e]">
         <div class="flex items-center gap-4">
-          <div id="cardNumber" class="bg-[#E21A1A] text-white text-3xl md:text-4xl font-black px-4 py-2 rounded-lg tracking-wider shadow">
+          <div id="cardNumber" class="bg-red-600 text-white text-3xl md:text-4xl font-black px-4 py-2 rounded-lg tracking-wider shadow">
             715Ч
           </div>
           <div>
             <div class="flex items-center gap-2 mb-0.5">
-              <span id="cardCategory" class="inline-block bg-[#1a2534] text-red-300 text-[11px] font-bold px-2.5 py-0.5 rounded border border-[#2b3a4f] uppercase tracking-wider">
+              <span id="cardCategory" class="inline-block bg-[#1a2333] text-red-300 text-[11px] font-bold px-2.5 py-0.5 rounded border border-[#2b3a53] uppercase tracking-wider">
                 Скоростной
               </span>
               <span id="cacheBadge" class="text-[11px] text-emerald-400 font-medium"></span>
@@ -315,10 +280,10 @@
         </div>
       </div>
 
-      <!-- ДИСПЕТЧЕРСКИЙ ТРЕКЕР ДВИЖЕНИЯ В РЕАЛЬНОМ ВРЕМЕНИ -->
-      <div id="liveTrackerCard" class="rzd-card rounded-xl p-4 md:p-5 space-y-3.5">
+      <!-- ОНЛАЙН-МОНИТОР ДВИЖЕНИЯ В РЕАЛЬНОМ ВРЕМЕНИ -->
+      <div id="liveTrackerCard" class="card-box rounded-xl p-4 md:p-5 space-y-3.5">
         
-        <div class="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-[#212c3d]">
+        <div class="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-[#212f45]">
           <div class="flex items-center gap-2">
             <span id="liveStatusPulse" class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm"></span>
             <span id="liveStateBadge" class="text-xs font-black uppercase tracking-wider text-emerald-400">
@@ -327,19 +292,19 @@
           </div>
 
           <div class="flex items-center gap-2">
-            <span id="liveDelayBadge" class="text-xs font-bold px-2.5 py-1 rounded bg-[#101722] text-slate-300 border border-[#243144]">
+            <span id="liveDelayBadge" class="text-xs font-bold px-2.5 py-1 rounded bg-[#101724] text-slate-300 border border-[#24334a]">
               По графику
             </span>
             <button
               type="button"
               onclick="loadTrainData(true)"
-              class="text-xs bg-[#192230] hover:bg-[#222f42] text-slate-300 hover:text-white px-2.5 py-1 rounded border border-[#28374b] transition flex items-center gap-1.5"
-              title="Обновить диспетчерские данные"
+              class="text-xs bg-[#192435] hover:bg-[#223046] text-slate-300 hover:text-white px-2.5 py-1 rounded border border-[#283952] transition flex items-center gap-1.5"
+              title="Обновить фактические данные"
             >
               <svg class="w-3.5 h-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.19"/>
               </svg>
-              <span>Обновить статус</span>
+              <span>Обновить</span>
             </button>
           </div>
         </div>
@@ -353,9 +318,9 @@
           </p>
         </div>
 
-        <!-- Шкала прогресса рейса -->
+        <!-- Шкала прогресса -->
         <div class="space-y-1">
-          <div class="relative w-full bg-[#0a0f16] h-2.5 rounded-full overflow-hidden border border-[#222e40]">
+          <div class="relative w-full bg-[#0a0e16] h-2.5 rounded-full overflow-hidden border border-[#233147]">
             <div id="liveProgressBar" class="h-full bg-emerald-500 rounded-full transition-all duration-500" style="width: 0%"></div>
           </div>
           <div class="flex justify-between items-center text-[11px] text-slate-400">
@@ -364,7 +329,7 @@
           </div>
         </div>
 
-        <!-- Предупреждение об опоздании -->
+        <!-- Оповещение об опоздании при наличии -->
         <div id="liveDelayAlert" class="hidden p-3 rounded-lg bg-red-950/40 border border-red-700/60 flex items-start gap-2.5 text-xs text-red-200">
           <svg class="w-4 h-4 text-red-400 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
@@ -372,85 +337,69 @@
             <line x1="12" y1="17" x2="12.01" y2="17"/>
           </svg>
           <div>
-            <div class="font-bold text-red-300">Внимание: отклонение от графика</div>
-            <div id="liveDelayAlertText" class="text-slate-300 mt-0.5">Поезд задерживается. Расчетное время прибытия на станции скорректировано.</div>
+            <div class="font-bold text-red-300">Внимание: задержка рейса</div>
+            <div id="liveDelayAlertText" class="text-slate-300 mt-0.5">Поезд следует с задержкой. Расчетное время прибытия скорректировано.</div>
           </div>
         </div>
 
       </div>
 
       <!-- ВРЕМЯ И СТАНЦИИ ОТПРАВЛЕНИЯ / ПРИБЫТИЯ -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 py-2 border-b border-[#202b3c] items-center">
-        <!-- Блок отправления -->
-        <div class="rzd-card p-4 rounded-xl">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 py-2 border-b border-[#1f2b3e] items-center">
+        <!-- Отправление -->
+        <div class="card-box p-4 rounded-xl">
           <div class="text-[11px] uppercase text-slate-400 font-bold mb-1">Отправление</div>
           <div id="cardDepTime" class="text-2xl md:text-3xl font-black text-white mb-0.5">16:00</div>
           <div id="cardDepDate" class="text-xs font-semibold text-slate-300 mb-1 font-mono">23.11.2026</div>
           <div id="cardDepStation" class="text-sm font-bold text-slate-200">Курск</div>
-          <div class="mt-2.5 pt-2 border-t border-[#202c3e] flex items-center justify-between text-xs">
+          <div class="mt-2.5 pt-2 border-t border-[#233147] flex items-center justify-between text-xs">
             <span class="text-slate-400">Платформа / путь:</span>
             <span id="cardDepPlatform" class="font-bold text-amber-400">—</span>
           </div>
         </div>
 
-        <!-- Центральный блок (В пути) -->
+        <!-- В пути -->
         <div class="flex flex-col items-center justify-center text-center p-3">
-          <div class="text-[11px] uppercase tracking-wider text-slate-400 font-bold mb-1">Время в пути</div>
+          <div class="text-[11px] uppercase tracking-wider text-slate-400 font-bold mb-1">В пути</div>
           <div id="cardDuration" class="text-xl md:text-2xl font-black text-emerald-400 mb-1">5 ч 35 мин</div>
           <div id="cardFullDirection" class="text-xs text-slate-400 font-medium">Маршрут</div>
         </div>
 
-        <!-- Блок прибытия -->
-        <div class="rzd-card p-4 rounded-xl">
+        <!-- Прибытие -->
+        <div class="card-box p-4 rounded-xl">
           <div class="text-[11px] uppercase text-slate-400 font-bold mb-1">Прибытие</div>
           <div id="cardArrTime" class="text-2xl md:text-3xl font-black text-white mb-0.5">21:35</div>
           <div id="cardArrDate" class="text-xs font-semibold text-slate-300 mb-1 font-mono flex items-center">23.11.2026</div>
           <div id="cardArrStation" class="text-sm font-bold text-slate-200">Москва</div>
-          <div class="mt-2.5 pt-2 border-t border-[#202c3e] flex items-center justify-between text-xs">
+          <div class="mt-2.5 pt-2 border-t border-[#233147] flex items-center justify-between text-xs">
             <span class="text-slate-400">Платформа / путь:</span>
             <span id="cardArrPlatform" class="font-bold text-amber-400">—</span>
           </div>
         </div>
       </div>
 
-      <!-- СХЕМА И ТЕХНИЧЕСКИЕ ПАРАМЕТРЫ СОСТАВА -->
+      <!-- СХЕМА И ТЕХНИЧЕСКИЕ ДАННЫЕ СОСТАВА -->
       <div>
-        <h3 class="text-xs uppercase tracking-wider text-slate-300 font-bold mb-3 flex items-center gap-2">
-          <span>Спецификация и оснащение состава</span>
+        <h3 class="text-xs uppercase tracking-wider text-slate-300 font-bold mb-3">
+          Данные состава и салона
         </h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-          <div class="rzd-card p-4 rounded-xl">
-            <div class="text-[11px] text-slate-400 uppercase font-semibold mb-1">Модель состава</div>
+          <div class="card-box p-4 rounded-xl">
+            <div class="text-[11px] text-slate-400 uppercase font-semibold mb-1">Серия и модель состава</div>
             <div id="cardModel" class="text-base font-bold text-white">ЭС2ГП</div>
           </div>
-          <div class="rzd-card p-4 rounded-xl">
+          <div class="card-box p-4 rounded-xl">
             <div class="text-[11px] text-slate-400 uppercase font-semibold mb-1">Составность</div>
             <div id="cardComposition" class="text-base font-bold text-white">5 ваг.</div>
           </div>
-          <div class="rzd-card p-4 rounded-xl">
-            <div class="text-[11px] text-slate-400 uppercase font-semibold mb-1">Компоновка салона и места</div>
+          <div class="card-box p-4 rounded-xl">
+            <div class="text-[11px] text-slate-400 uppercase font-semibold mb-1">Схема салона и места</div>
             <div id="cardShelves" class="text-xs md:text-sm text-slate-200 leading-relaxed">...</div>
           </div>
-          <div class="rzd-card p-4 rounded-xl">
+          <div class="card-box p-4 rounded-xl">
             <div class="text-[11px] text-slate-400 uppercase font-semibold mb-1">Оснащение и розетки</div>
             <div id="cardSockets" class="text-xs md:text-sm text-slate-200 leading-relaxed">...</div>
           </div>
-        </div>
-
-        <!-- Официальная памятка пассажирам РЖД -->
-        <div class="mt-3 p-3.5 rounded-xl bg-[#111924] border border-[#233144] text-xs text-slate-300 space-y-1">
-          <div class="font-bold text-slate-200 flex items-center gap-1.5">
-            <svg class="w-4 h-4 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="12" y1="16" x2="12" y2="12"></line>
-              <line x1="12" y1="8" x2="12.01" y2="8"></line>
-            </svg>
-            Правила посадки и нумерация мест:
-          </div>
-          <p class="text-slate-400 leading-normal">
-            В скоростных поездах посадка пассажиров производится через двери вагонов <b>№№ 1, 3, 5, 6, 8, 10</b>. 
-            <b>Нечетные места</b> расположены у окна, <b>четные</b> — у прохода. Места для пассажиров с ограниченными физическими возможностями оборудованы в вагонах 1 и 5. Провоз мелких домашних животных допускается в специализированных зонах (вагон 3 класс 2Ж / вагон 5 класс 2В).
-          </p>
         </div>
       </div>
 
@@ -458,26 +407,26 @@
       <div class="pt-2">
         <div class="flex flex-wrap items-center justify-between gap-2 mb-2.5">
           <h3 class="text-xs uppercase tracking-wider text-slate-300 font-bold">
-            Расписание и остановки по маршруту следования
+            Расписание и остановки по маршруту
           </h3>
           <span class="text-[11px] text-slate-400">
-            Официальные данные диспетчерской нитки
+            Официальные данные графика
           </span>
         </div>
 
-        <div class="rzd-card rounded-xl overflow-x-auto shadow">
+        <div class="card-box rounded-xl overflow-x-auto shadow">
           <table class="w-full text-left text-xs md:text-sm border-collapse">
-            <thead class="bg-[#101722] text-slate-400 uppercase text-[11px] border-b border-[#212c3e]">
+            <thead class="bg-[#111824] text-slate-400 uppercase text-[11px] border-b border-[#212f45]">
               <tr>
                 <th class="p-3 font-bold">Станция</th>
-                <th class="p-3 font-bold">График движения</th>
+                <th class="p-3 font-bold">Статус</th>
                 <th class="p-3 font-bold">Прибытие</th>
                 <th class="p-3 font-bold">Стоянка</th>
                 <th class="p-3 font-bold">Отправление</th>
                 <th class="p-3 font-bold text-amber-400">Платформа / Путь</th>
               </tr>
             </thead>
-            <tbody id="stopsTableBody" class="divide-y divide-[#1e2838]">
+            <tbody id="stopsTableBody" class="divide-y divide-[#1d273a]">
             </tbody>
           </table>
         </div>
@@ -486,13 +435,8 @@
     </section>
   </main>
 
-  <footer class="w-full bg-[#080c12] border-t border-[#1a2332] py-4 text-center text-xs text-slate-500 mt-auto">
-    <div class="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-      <div>© 2026 Информационный сервис расписаний и мониторинга пассажирских поездов</div>
-      <div class="flex items-center gap-4 text-slate-400">
-        <span>Круглосуточная поддержка: 8 (800) 775-00-00</span>
-      </div>
-    </div>
+  <footer class="w-full max-w-5xl mx-auto py-6 text-center text-xs text-slate-500 mt-auto">
+    Радар Составов • 2026
   </footer>
 
   <script>
@@ -541,7 +485,7 @@
       return null;
     }
 
-    // Инициализация сегодняшней датой
+    // Инициализация сегодняшней датой в формате ДД.ММ.ГГГГ
     const today = new Date();
     dateInput.value = formatDateRu(today);
 
@@ -557,7 +501,7 @@
       closeCalendar();
     });
 
-    // Автомаска для ввода ДД.ММ.ГГГГ
+    // Автоматическая маска при вводе ДД.ММ.ГГГГ
     dateInput.addEventListener('input', (e) => {
       let v = e.target.value.replace(/\D/g, '');
       if (v.length > 8) v = v.substring(0, 8);
@@ -575,7 +519,7 @@
       e.target.value = formatted;
     });
 
-    // Календарь
+    // Управление календарем
     function openCalendar() {
       const parsed = parseRuDate(dateInput.value);
       if (parsed) {
@@ -622,11 +566,9 @@
       const firstDayOfMonth = new Date(year, month, 1);
       const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-      // Дни недели: Пн=1..Вс=7 (в JS Вс=0, Пн=1)
       let startDay = firstDayOfMonth.getDay();
       startDay = (startDay === 0) ? 6 : startDay - 1; // 0=Пн .. 6=Вс
 
-      // Пустые клетки перед первым днем месяца
       for (let i = 0; i < startDay; i++) {
         const emptyCell = document.createElement('div');
         emptyCell.className = 'cal-day cal-empty';
@@ -715,9 +657,9 @@
         return;
       }
       suggestBox.innerHTML = items.map(i => `
-        <div class="p-3 hover:bg-[#1a2534] cursor-pointer flex justify-between items-center transition" onclick="selectTrain('${i.uid}', '${i.number}')">
+        <div class="p-3 hover:bg-[#1c273b] cursor-pointer flex justify-between items-center transition" onclick="selectTrain('${i.uid}', '${i.number}')">
           <div class="flex items-center gap-2">
-            <span class="bg-[#E21A1A] text-white text-xs font-black px-2 py-0.5 rounded">${i.number}</span>
+            <span class="bg-red-600 text-white text-xs font-black px-2 py-0.5 rounded">${i.number}</span>
             <span class="text-xs md:text-sm font-semibold text-slate-200">${i.title}</span>
           </div>
           <span class="text-[11px] text-slate-400">Выбрать →</span>
@@ -885,7 +827,7 @@
           delayBadge.className = 'text-xs font-bold px-2.5 py-1 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-700';
           delayBadge.textContent = `Опережение ${delayMin} мин`;
         } else {
-          delayBadge.className = 'text-xs font-bold px-2.5 py-1 rounded bg-[#101722] text-slate-300 border border-[#243144]';
+          delayBadge.className = 'text-xs font-bold px-2.5 py-1 rounded bg-[#101724] text-slate-300 border border-[#24334a]';
           delayBadge.textContent = 'По графику';
         }
 
@@ -906,15 +848,15 @@
         }
 
         // Заполнение таблицы станций
-        // Внимание: колонка «Станция» содержит только название и код (никаких подписей «Пройдена в...» снизу)
+        // Станция содержит только название и код (никаких лишних дублирующих подписей снизу)
         const tbody = document.getElementById('stopsTableBody');
         tbody.innerHTML = (info.stops || []).map(st => {
-          let rowClass = 'hover:bg-[#1a2433] transition';
+          let rowClass = 'hover:bg-[#1a2436] transition';
           let statusBadge = `<span class="text-[11px] text-slate-500 font-medium">По графику</span>`;
 
           if (st.status === 'passed') {
-            rowClass = 'opacity-65 hover:opacity-100 hover:bg-[#192230] transition bg-[#0d141e]/50';
-            statusBadge = `<span class="inline-flex items-center text-[11px] font-semibold text-slate-400 bg-[#16202c] px-2 py-0.5 rounded border border-[#223043]">Пройдена</span>`;
+            rowClass = 'opacity-65 hover:opacity-100 hover:bg-[#192333] transition bg-[#0d1420]/50';
+            statusBadge = `<span class="inline-flex items-center text-[11px] font-semibold text-slate-400 bg-[#162130] px-2 py-0.5 rounded border border-[#223146]">Пройдена</span>`;
           } else if (st.status === 'standing') {
             rowClass = 'bg-amber-950/20 border-l-2 border-amber-500 hover:bg-amber-950/30 transition';
             statusBadge = `<span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-300 bg-amber-950/80 border border-amber-600/70 px-2 py-0.5 rounded"><span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>Стоянка</span>`;
@@ -923,7 +865,7 @@
             statusBadge = `<span class="inline-flex items-center text-[11px] font-bold text-sky-300 bg-sky-950/80 border border-sky-600/70 px-2 py-0.5 rounded">Следующая</span>`;
           }
 
-          // Отображение даты, если рейс переходит на новый день
+          // Дата при переходе суток
           let arrDateBadge = '';
           if (st.is_next_day && st.arr_date && st.arrival !== '—') {
             arrDateBadge = `<div class="text-[10px] font-bold text-amber-400 tracking-tight">${st.arr_date} <span class="text-[9px] font-normal text-amber-300">(+${st.days_diff} дн)</span></div>`;
@@ -977,7 +919,7 @@
         if (!isRefresh) {
           loadingState.classList.add('hidden');
           emptyState.classList.remove('hidden');
-          alert(`Информация о рейсе: ${err.message}`);
+          alert(`Ошибка: ${err.message}`);
         }
       }
     }
